@@ -6,6 +6,52 @@ import { formatEther } from 'viem';
 
 type SortMode = 'tvl' | 'participants' | 'ending';
 
+const FEATURED_BREAKING_NEWS = [
+  {
+    title: '俪人行长卷最终成交价会达到 5000万港币吗？',
+    probability: 18,
+    change: 6,
+  },
+  {
+    title: '俪人行长卷最终成交价会达到 3000万港币吗？',
+    probability: 49,
+    change: 12,
+  },
+  {
+    title: '俪人行长卷最终成交价会低于 2000万港币吗？',
+    probability: 28,
+    change: -7,
+  },
+];
+
+const FEATURED_HOT_TOPICS = [
+  {
+    title: '3000万港币档位',
+    volume: '$4.2M 今日',
+    heatChange: 31,
+  },
+  {
+    title: '香港中信拍卖行夜场',
+    volume: '$860K 今日',
+    heatChange: 18,
+  },
+  {
+    title: '长卷类作品成交价',
+    volume: '$520K 今日',
+    heatChange: 9,
+  },
+  {
+    title: '5000万港币突破概率',
+    volume: '$410K 今日',
+    heatChange: -5,
+  },
+  {
+    title: '书画板块回暖',
+    volume: '$280K 今日',
+    heatChange: 14,
+  },
+];
+
 function participantCountFor(artwork: Artwork): number {
   const totalVolume = Number(formatEther(BigInt(artwork.totalLockedMonWei)));
   return Math.max(120, Math.round(totalVolume / 7.1));
@@ -28,7 +74,7 @@ function HotFeaturedBanner({ artwork, now }: { artwork: Artwork; now: number }) 
   return (
     <Link
       to={`/art/${artwork.id}`}
-      className="group relative isolate flex flex-col overflow-hidden rounded-3xl border border-accent/35 bg-gradient-to-br from-accent/25 via-neutral-950/90 to-neutral-950 shadow-xl shadow-accent/15 transition hover:border-accent/55 md:grid md:min-h-[320px] md:grid-cols-[1.35fr_minmax(0,1fr)]"
+      className="group relative isolate flex h-full flex-col overflow-hidden rounded-3xl border border-accent/35 bg-gradient-to-br from-accent/25 via-neutral-950/90 to-neutral-950 shadow-xl shadow-accent/15 transition hover:border-accent/55 md:grid md:min-h-[320px] md:grid-cols-[1.35fr_minmax(0,1fr)]"
     >
       <div className="relative aspect-[16/11] md:aspect-auto md:min-h-[320px]">
         <img
@@ -76,8 +122,57 @@ function HotFeaturedBanner({ artwork, now }: { artwork: Artwork; now: number }) 
   );
 }
 
+function FeaturedInfoCards() {
+  return (
+    <div className="grid gap-3 lg:h-full lg:grid-rows-2">
+      <div className="rounded-3xl border border-white/10 bg-white/[0.03] p-4 shadow-lg shadow-purple-950/20">
+        <div className="flex items-center justify-between gap-3">
+          <h3 className="text-sm font-semibold text-white">突发新闻</h3>
+          <span className="text-lg text-neutral-500">›</span>
+        </div>
+        <div className="mt-3 divide-y divide-white/10">
+          {FEATURED_BREAKING_NEWS.map((item, idx) => (
+            <div key={item.title} className="grid grid-cols-[24px_minmax(0,1fr)_64px] items-center gap-3 py-2.5">
+              <div className="text-sm font-semibold text-neutral-600">{idx + 1}</div>
+              <div className="text-xs font-semibold leading-relaxed text-neutral-100">{item.title}</div>
+              <div className="text-right">
+                <div className="text-lg font-semibold text-white">{item.probability}%</div>
+                <div className={item.change >= 0 ? 'text-[11px] font-semibold text-emerald-300' : 'text-[11px] font-semibold text-rose-300'}>
+                  {item.change >= 0 ? '↗' : '↘'} {Math.abs(item.change)}%
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div className="rounded-3xl border border-white/10 bg-white/[0.03] p-4 shadow-lg shadow-purple-950/20">
+        <div className="flex items-center justify-between gap-3">
+          <h3 className="text-sm font-semibold text-white">热门话题</h3>
+          <span className="text-lg text-neutral-500">›</span>
+        </div>
+        <div className="mt-3 space-y-2">
+          {FEATURED_HOT_TOPICS.map((item, idx) => (
+            <div key={item.title} className="grid grid-cols-[24px_minmax(0,1fr)_96px] items-center gap-3">
+              <div className="text-sm font-semibold text-neutral-600">{idx + 1}</div>
+              <div className="truncate text-xs font-semibold text-neutral-100">{item.title}</div>
+              <div className="text-right text-[11px]">
+                <div className="font-semibold text-neutral-300">{item.volume}</div>
+                <div className={item.heatChange >= 0 ? 'font-semibold text-emerald-300' : 'font-semibold text-rose-300'}>
+                  {item.heatChange >= 0 ? '↗' : '↘'} {Math.abs(item.heatChange)}%
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function ArtCard({ artwork, now }: { artwork: Artwork; now: number }) {
   const ended = artwork.predictionEndsAt <= now;
+  const previewTiers = artwork.priceTiers.slice(0, 2);
   return (
     <Link
       to={`/art/${artwork.id}`}
@@ -97,12 +192,24 @@ function ArtCard({ artwork, now }: { artwork: Artwork; now: number }) {
       <div className="flex flex-1 flex-col gap-3 p-4">
         <div>
           <h3 className="line-clamp-2 text-sm font-semibold text-white">{artwork.title}</h3>
-          <p className="mt-1 text-xs text-neutral-400">{artwork.artist}</p>
+          <div className="mt-1 flex items-center justify-between gap-3">
+            <p className="min-w-0 truncate text-xs text-neutral-400">作者：{artwork.artist}</p>
+            <p className="shrink-0 text-[11px] text-neutral-400">
+              拍卖行：
+              <span className="rounded-full border border-accent/35 bg-accent-soft px-2 py-0.5 font-semibold text-accent">
+                {artwork.auctionHouse}
+              </span>
+            </p>
+          </div>
         </div>
         <div className="grid grid-cols-2 gap-3 text-[11px] text-neutral-300">
-          <div>
-            <div className="text-neutral-500">当前估值</div>
-            <div className="mt-1 font-semibold text-white">{formatUsd(artwork.appraisalValueUsd)}</div>
+          <div className="col-span-2 space-y-1">
+            {previewTiers.map((tier) => (
+              <div key={tier.id} className="flex items-center justify-between gap-3 rounded-xl bg-white/[0.03] px-3 py-2">
+                <span className="truncate text-neutral-300">{tier.label}</span>
+                <span className="shrink-0 font-semibold text-accent">{tier.probability}%</span>
+              </div>
+            ))}
           </div>
           <div>
             <div className="text-neutral-500">{ended ? '状态' : '截止倒计时'}</div>
@@ -114,14 +221,12 @@ function ArtCard({ artwork, now }: { artwork: Artwork; now: number }) {
               )}
             </div>
           </div>
-        </div>
-        <div className="rounded-2xl bg-white/[0.03] px-3 py-2 text-[11px] text-neutral-400">
-          总交易量：{' '}
-          <strong className="text-neutral-200">
-            <span className="text-accent">
+          <div>
+            <div className="text-neutral-500">总交易量</div>
+            <div className="mt-1 font-semibold text-accent">
               {formatUsd(Number(formatEther(BigInt(artwork.totalLockedMonWei))))}
-            </span>
-          </strong>
+            </div>
+          </div>
         </div>
       </div>
     </Link>
@@ -154,7 +259,10 @@ export function HomePage() {
         <h2 id="featured-heading" className="text-sm font-semibold text-neutral-200">
           当前最热的艺术品
         </h2>
-        <HotFeaturedBanner artwork={featured} now={tick} />
+        <div className="grid items-stretch gap-4 lg:grid-cols-[minmax(0,1fr)_340px]">
+          <HotFeaturedBanner artwork={featured} now={tick} />
+          <FeaturedInfoCards />
+        </div>
       </section>
 
       {/* 第二板块：其他艺术品 */}
