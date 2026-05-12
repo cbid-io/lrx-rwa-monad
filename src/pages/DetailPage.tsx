@@ -1,7 +1,8 @@
 import { useMemo, useState } from 'react';
 import { Link, Navigate, useParams } from 'react-router-dom';
-import { formatEther, parseEther } from 'viem';
-import { useAccount, useWriteContract } from 'wagmi';
+import { useConnectModal } from '@rainbow-me/rainbowkit';
+import { formatEther, maxUint256, parseUnits } from 'viem';
+import { useAccount, usePublicClient, useReadContract, useWriteContract } from 'wagmi';
 import { MOCK_ARTWORKS } from '@/mock/artworks';
 import {
   MOCK_AUCTION_PRICE_HISTORY_BY_ARTWORK,
@@ -10,9 +11,15 @@ import {
 import { MOCK_MARKET_TABS_BY_ARTWORK, type MarketTabData } from '@/mock/marketTabs';
 import { formatUsd, shortAddress } from '@/lib/format';
 import { PriceMiniChart } from '@/components/PriceMiniChart';
-import { predictionMarketAbi } from '@/abi/predictionMarket';
 import { useToast } from '@/context/Toast';
-import { PREDICTION_MARKET_ADDRESS, isConfiguredMarketAddress } from '@/config/contracts';
+import {
+  PREDICTION_MARKET_ADDRESS,
+  TEST_USDC_ADDRESS,
+  isConfiguredMarketAddress,
+} from '@/config/contracts';
+import { erc20Abi } from '@/abi/erc20';
+import { erc20ApproveWriteArgs } from '@/lib/erc20Tx';
+import { marketIdForArtworkTier, predictionBetWriteRequest } from '@/lib/predictionMarketTx';
 import { usePoolTicker } from '@/hooks/usePoolTicker';
 import { MONAD_EXPLORER_TX, monadTestnet } from '@/lib/monad';
 import { useTxReceiptFeedback } from '@/hooks/useTxFeedback';
@@ -208,8 +215,35 @@ export function DetailPage() {
   const [activeInfoTab, setActiveInfoTab] = useState<MarketInfoTab>('comments');
 
   const { address, chainId } = useAccount();
+  const { openConnectModal } = useConnectModal();
+  const publicClient = usePublicClient({ chainId: monadTestnet.id });
   const { writeContractAsync, isPending } = useWriteContract();
   const confirming = useTxReceiptFeedback(txHash).confirming;
+
+  const usdcConfigured = isConfiguredMarketAddress(TEST_USDC_ADDRESS);
+  const marketConfigured = isConfiguredMarketAddress(PREDICTION_MARKET_ADDRESS);
+
+  const { data: tokenDecimals } = useReadContract({
+    address: usdcConfigured ? TEST_USDC_ADDRESS : undefined,
+    abi: erc20Abi,
+    functionName: 'decimals',
+    chainId: monadTestnet.id,
+    query: { enabled: usdcConfigured },
+  });
+
+  const { data: allowance, refetch: refetchAllowance } = useReadContract({
+    address: TEST_USDC_ADDRESS,
+    abi: erc20Abi,
+    chainId: monadTestnet.id,
+    functionName: 'allowance',
+    args:
+      address && marketConfigured && usdcConfigured
+        ? [address, PREDICTION_MARKET_ADDRESS]
+        : undefined,
+    query: {
+      enabled: Boolean(address && marketConfigured && usdcConfigured),
+    },
+  });
 
   const ticker = usePoolTicker(poolSeed);
 
@@ -222,6 +256,19 @@ export function DetailPage() {
     if (!artworkCandidate) return MOCK_MARKET_TABS_BY_ARTWORK['1'];
     return MOCK_MARKET_TABS_BY_ARTWORK[artworkCandidate.id] ?? MOCK_MARKET_TABS_BY_ARTWORK['1'];
   }, [artworkCandidate]);
+
+  const decimalsForAmount =
+    tokenDecimals !== undefined && tokenDecimals !== null ? Number(tokenDecimals) : 18;
+
+  /** 用于主按钮文案：与链上 `allowance` 比较输入金额（最小单位）。 */
+  const parsedStakeForLabel = useMemo(() => {
+    try {
+      const v = parseUnits(amount, decimalsForAmount);
+      return v > 0n ? v : undefined;
+    } catch {
+      return undefined;
+    }
+  }, [amount, decimalsForAmount]);
 
   if (!id || !artworkCandidate) {
     return <Navigate to="/" replace />;
@@ -237,7 +284,6 @@ export function DetailPage() {
 
   const onTrade = async () => {
     if (!address) {
-      push('请先连接钱包再进行预测。');
       return;
     }
     if (chainId && chainId !== monadTestnet.id) {
@@ -249,51 +295,76 @@ export function DetailPage() {
       return;
     }
 
-    let value: bigint;
+    const decimals =
+      tokenDecimals !== undefined && tokenDecimals !== null ? Number(tokenDecimals) : 18;
+
+    let stakeAmount: bigint;
     try {
-      value = parseEther(amount);
+      stakeAmount = parseUnits(amount, decimals);
     } catch {
       push('请输入合法的金额（例如 50）。');
       return;
     }
 
-    if (value <= 0n) {
+    if (stakeAmount <= 0n) {
       push('金额必须大于 0。');
       return;
     }
 
-    if (!isConfiguredMarketAddress(PREDICTION_MARKET_ADDRESS)) {
+    if (!marketConfigured) {
       push('尚未配置合约地址：`VITE_PREDICTION_MARKET_ADDRESS`，当前仅可查看页面内容。');
+      return;
+    }
+
+    if (!usdcConfigured) {
+      push('尚未配置抵押代币：`VITE_TEST_USDC_ADDRESS`。');
       return;
     }
 
     try {
       setTxHash(undefined);
       push('等待钱包弹出签名面板…');
+
+      const { data: allowanceNow } = await refetchAllowance();
+      const allowed = allowanceNow ?? 0n;
+
+      if (allowed < stakeAmount) {
+        push('当前授权不足，正在请求代币授权…');
+        const approveReq = erc20ApproveWriteArgs({
+          token: TEST_USDC_ADDRESS,
+          spender: PREDICTION_MARKET_ADDRESS,
+          amount: maxUint256,
+        });
+        const approveHash = await writeContractAsync({
+          account: address,
+          chainId: monadTestnet.id,
+          ...approveReq,
+        });
+        if (publicClient) {
+          await publicClient.waitForTransactionReceipt({ hash: approveHash });
+        }
+        await refetchAllowance();
+        push('授权已确认，提交预测交易…');
+      }
+
       const tierIndex = Math.max(
         0,
         artwork.priceTiers.findIndex((tier) => tier.id === selectedTier.id),
       );
+      const marketId = marketIdForArtworkTier(artwork.id, tierIndex);
+      const betReq = predictionBetWriteRequest({
+        marketAddress: PREDICTION_MARKET_ADDRESS,
+        side: selectedSide,
+        marketId,
+        amount: stakeAmount,
+      });
 
       const h = await writeContractAsync({
         account: address,
-        address: PREDICTION_MARKET_ADDRESS,
-        abi: predictionMarketAbi,
         chainId: monadTestnet.id,
-        functionName: 'buyOutcome',
-        /** outcomeCode 为占位：tierIndex * 2 + side（是=0，否=1）；实盘请按合约枚举定义对齐。 */
-        args: [
-          BigInt(artwork.id),
-          tierIndex * 2 + (selectedSide === 'yes' ? 0 : 1),
-          value,
-        ],
-        value,
+        ...betReq,
       });
 
-      /**
-       * 实际场景：若为 ERC20 抵押应使用 `approve` + `value: 0n`；
-       * 「此数据应从合约 IERC20(usdc)` 计价逻辑替换」。
-       */
       setTxHash(h);
       push(`已提交交易哈希：${explorerBase}${h}`);
     } catch (e) {
@@ -315,6 +386,36 @@ export function DetailPage() {
       );
     }
   };
+
+  const onTradeButtonClick = () => {
+    if (!address) {
+      openConnectModal?.();
+      return;
+    }
+    void onTrade();
+  };
+
+  const purchaseExceedsAllowance =
+    Boolean(address && marketConfigured && usdcConfigured && predictionOpen) &&
+    allowance !== undefined &&
+    parsedStakeForLabel !== undefined &&
+    parsedStakeForLabel > allowance;
+
+  const tradeButtonLabel = !address
+    ? '连接钱包'
+    : !predictionOpen
+      ? '窗口已关闭'
+      : !marketConfigured || !usdcConfigured
+        ? '暂不可交易'
+        : purchaseExceedsAllowance
+          ? '授权'
+          : '交易';
+
+  const tradeButtonDisabled =
+    (!!address && !predictionOpen) ||
+    isPending ||
+    confirming ||
+    (!!address && (!marketConfigured || !usdcConfigured));
 
   return (
     <div className="space-y-6">
@@ -578,14 +679,17 @@ export function DetailPage() {
 
             <button
               type="button"
-              disabled={!predictionOpen || isPending || confirming}
-              onClick={() => void onTrade()}
+              disabled={tradeButtonDisabled}
+              onClick={onTradeButtonClick}
               className="mt-4 w-full rounded-2xl bg-gradient-to-r from-fuchsia-500 to-violet-600 py-3 text-xs font-semibold text-white shadow-lg shadow-purple-900/70 transition hover:brightness-105 disabled:cursor-not-allowed disabled:bg-neutral-700"
             >
-              {predictionOpen ? '交易' : '窗口已关闭'}
+              {tradeButtonLabel}
             </button>
             <p className="mt-3 text-[11px] leading-relaxed text-neutral-500">
-              签名后显示哈希并等待 Monad Testnet 确认；合约方法为 `buyOutcome`。
+              使用抵押代币下注：授权充足时直接调用{' '}
+              <span className="font-mono text-neutral-400">betYes</span> /{' '}
+              <span className="font-mono text-neutral-400">betNo</span>
+              ；不足时先完成授权再提交交易，哈希可在 Monad Testnet 浏览器查看确认进度。
             </p>
           </div>
 

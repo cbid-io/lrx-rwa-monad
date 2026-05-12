@@ -46,25 +46,28 @@ export function DashboardPage() {
       return;
     }
 
-    /** 占位：真实场景 `claimRewards(uint256[] positionIds)` 由合约校验 merkle/root。 */
+    /** 占位：链上为 `claim(uint256 marketId)`，多笔头寸依次广播。 */
     if (!isConfiguredMarketAddress(PREDICTION_MARKET_ADDRESS)) {
       push(`领取批次已准备：头寸 ${ids.join(', ')}。配置合约地址后即可广播交易。`);
       return;
     }
 
     try {
-      const h = await writeContractAsync({
-        account: address,
-        chainId: monadTestnet.id,
-        abi: predictionMarketAbi,
-        address: PREDICTION_MARKET_ADDRESS,
-        functionName: 'claimRewards',
-        /** 生产中：ids 取自链上 indexer 分页，而非本地占位映射。 */
-        args: [
-          ids.map((x) => POSITION_ID_BY_MOCK_ROW[x] ?? 999n),
-        ],
-      });
-      push(`奖励领取交易已发送：${MONAD_EXPLORER_TX}${h}`);
+      let lastHash: `0x${string}` | undefined;
+      for (const rowId of ids) {
+        const marketId = POSITION_ID_BY_MOCK_ROW[rowId] ?? 999n;
+        lastHash = await writeContractAsync({
+          account: address,
+          chainId: monadTestnet.id,
+          abi: predictionMarketAbi,
+          address: PREDICTION_MARKET_ADDRESS,
+          functionName: 'claim',
+          args: [marketId],
+        });
+      }
+      if (lastHash) {
+        push(`奖励领取交易已发送：${MONAD_EXPLORER_TX}${lastHash}`);
+      }
     } catch {
       push('批量领取写入失败或未部署合约。', 'error');
     }

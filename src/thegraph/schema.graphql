@@ -1,0 +1,70 @@
+type BetPlaced @entity(immutable: true) {
+  id: Bytes!
+  marketId: BigInt! # uint256
+  user: Bytes! # address
+  yesSide: Boolean! # bool
+  amount: BigInt! # uint256
+  blockNumber: BigInt!
+  blockTimestamp: BigInt!
+  transactionHash: Bytes!
+}
+
+type Claimed @entity(immutable: true) {
+  id: Bytes!
+  marketId: BigInt! # uint256
+  to: Bytes! # address
+  amount: BigInt! # uint256
+  blockNumber: BigInt!
+  blockTimestamp: BigInt!
+  transactionHash: Bytes!
+}
+
+type FeeBpsUpdated @entity(immutable: true) {
+  id: Bytes!
+  feeBps: Int! # uint16
+  blockNumber: BigInt!
+  blockTimestamp: BigInt!
+  transactionHash: Bytes!
+}
+
+type FeeRecipientUpdated @entity(immutable: true) {
+  id: Bytes!
+  recipient: Bytes! # address
+  blockNumber: BigInt!
+  blockTimestamp: BigInt!
+  transactionHash: Bytes!
+}
+
+type MarketCreated @entity(immutable: true) {
+  id: Bytes!
+  marketId: BigInt! # uint256
+  parentTopicId: BigInt! # uint256
+  meta: String! # string
+  bettingDeadline: BigInt! # uint64
+  minTotalYes: BigInt! # uint256
+  minTotalNo: BigInt! # uint256
+  blockNumber: BigInt!
+  blockTimestamp: BigInt!
+  transactionHash: Bytes!
+}
+
+type MarketResolved @entity(immutable: true) {
+  id: Bytes!
+  marketId: BigInt! # uint256
+  outcomeIsYes: Boolean! # bool
+  grossPool: BigInt! # uint256
+  fee: BigInt! # uint256
+  netPool: BigInt! # uint256
+  blockNumber: BigInt!
+  blockTimestamp: BigInt!
+  transactionHash: Bytes!
+}
+
+type TopicCreated @entity(immutable: true) {
+  id: Bytes!
+  topicId: BigInt! # uint256
+  meta: String! # string
+  blockNumber: BigInt!
+  blockTimestamp: BigInt!
+  transactionHash: Bytes!
+}
