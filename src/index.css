@@ -1,0 +1,27 @@
+@import 'tailwindcss';
+
+@theme {
+  --font-sans:
+    ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji';
+  --color-surface: #0c0b12;
+  --color-surface-muted: #14121f;
+  --color-border-muted: rgba(255, 255, 255, 0.08);
+  --color-accent: #a855f7;
+  --color-accent-soft: rgba(168, 85, 247, 0.15);
+}
+
+html,
+body,
+#root {
+  min-height: 100%;
+}
+
+body {
+  margin: 0;
+  font-family: var(--font-sans);
+  background: radial-gradient(1200px circle at 20% -10%, #2e1064 0%, transparent 45%),
+    radial-gradient(900px circle at 90% 10%, rgba(168, 85, 247, 0.2) 0%, transparent 50%),
+    var(--color-surface);
+  color: #f4f4f5;
+  -webkit-font-smoothing: antialiased;
+}

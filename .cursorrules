@@ -1,0 +1,6 @@
+# LRX Monad DApp · Cursor 上下文
+
+- 业务域：Monad Testnet 上的「艺术品 RWA 预测市场」纯前端：`npm install && npm run dev`。
+- 网络与占位合约：参见 `README.md` 与根目录 `.env.example`。
+- 禁止引入：Dockerfile、后端服务、Solidity、Redux（状态以 React Query + 轻量 Context 为主）。
+- 动态数据占位集中在 `src/mock/*` 与注释中的「应从合约 XXX 读取」说明。
