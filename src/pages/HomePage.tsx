@@ -71,12 +71,7 @@ const FEATURED_HOT_TOPICS = [
     title: '雾与海·单色摄影 500万港币档位',
     volume: '$260K 今日',
     heatChange: 7,
-  },
-  {
-    title: '倪瓒《江亭山色图》2亿港币档位',
-    volume: '$680K 今日',
-    heatChange: 13,
-  },
+  }
 ];
 
 function participantCountFor(artwork: Artwork): number {
