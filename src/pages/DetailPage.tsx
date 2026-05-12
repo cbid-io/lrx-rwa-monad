@@ -339,7 +339,7 @@ export function DetailPage() {
                     {artwork.auctionHouse}
                   </span>
                 </div>
-                <h1 className="text-2xl font-semibold leading-tight text-white md:text-4xl">
+                <h1 className="text-xl font-semibold leading-tight text-white md:text-2xl">
                   {artwork.marketTitle}
                 </h1>
                 <div className="mt-4 flex flex-wrap items-center gap-x-6 gap-y-2 text-xs text-neutral-400">

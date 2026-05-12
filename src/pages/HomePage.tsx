@@ -57,6 +57,26 @@ const FEATURED_HOT_TOPICS = [
     volume: '$390K 今日',
     heatChange: 11,
   },
+  {
+    title: '俪人行长卷 3000万港币档位',
+    volume: '$1.4M 今日',
+    heatChange: 19,
+  },
+  {
+    title: '柴窑龙舟福童枕 3亿港币档位',
+    volume: '$960K 今日',
+    heatChange: -8,
+  },
+  {
+    title: '雾与海·单色摄影 500万港币档位',
+    volume: '$260K 今日',
+    heatChange: 7,
+  },
+  {
+    title: '倪瓒《江亭山色图》2亿港币档位',
+    volume: '$680K 今日',
+    heatChange: 13,
+  },
 ];
 
 function participantCountFor(artwork: Artwork): number {
@@ -131,9 +151,9 @@ function FeaturedInfoCards() {
         <div className="mt-3 space-y-2">
           {FEATURED_HOT_TOPICS.map((item, idx) => (
             <div key={item.title} className="grid grid-cols-[24px_minmax(0,1fr)_96px] items-center gap-3">
-              <div className="text-sm font-semibold text-neutral-600">{idx + 1}</div>
-              <div className="truncate text-xs font-semibold text-neutral-100">{item.title}</div>
-              <div className="text-right text-[11px]">
+              <div className="text-base font-semibold text-neutral-600">{idx + 1}</div>
+              <div className="truncate text-sm font-semibold text-neutral-100">{item.title}</div>
+              <div className="text-right text-xs">
                 <div className="font-semibold text-neutral-300">{item.volume}</div>
                 <div className={item.heatChange >= 0 ? 'font-semibold text-emerald-300' : 'font-semibold text-rose-300'}>
                   {item.heatChange >= 0 ? '↗' : '↘'} {Math.abs(item.heatChange)}%
@@ -207,6 +227,48 @@ function ArtCard({ artwork, now }: { artwork: Artwork; now: number }) {
         </div>
       </div>
     </Link>
+  );
+}
+
+function HomeFooter() {
+  const contactLinks = [
+    { label: 'Email', icon: '✉' },
+    { label: 'X', icon: '𝕏' },
+    { label: 'Instagram', icon: '◎' },
+    { label: 'Discord', icon: '☁' },
+    { label: 'TikTok', icon: '♪' },
+  ];
+  const policyLinks = ['隐私', '使用条款', '市场诚信', '帮助中心', '文档'];
+
+  return (
+    <footer className="border-t border-white/10 pt-6 text-[11px] text-neutral-500">
+      <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+        <div className="flex flex-wrap items-center gap-3">
+          {contactLinks.map((item) => (
+            <a key={item.label} href="#" className="inline-flex items-center gap-1.5 transition hover:text-accent">
+              <span className="text-sm text-neutral-300">{item.icon}</span>
+              <span>{item.label}</span>
+            </a>
+          ))}
+        </div>
+
+        <div className="flex flex-wrap items-center justify-start gap-x-4 gap-y-2 md:justify-center">
+          <span className="font-medium text-neutral-300">CBID Market © 2026</span>
+          {policyLinks.map((label) => (
+            <a key={label} href="#" className="transition hover:text-accent">
+              {label}
+            </a>
+          ))}
+        </div>
+
+        <div className="flex items-center gap-2 md:justify-end">
+          <span>语言</span>
+          <button type="button" className="rounded-full border border-white/10 px-3 py-1 text-neutral-300 hover:border-accent/45">
+            中文
+          </button>
+        </div>
+      </div>
+    </footer>
   );
 }
 
@@ -284,6 +346,8 @@ export function HomePage() {
           </div>
         )}
       </section>
+
+      <HomeFooter />
     </div>
   );
 }
