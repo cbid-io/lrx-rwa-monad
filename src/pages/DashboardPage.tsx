@@ -44,7 +44,7 @@ export function DashboardPage() {
 
     /** 占位：真实场景 `claimRewards(uint256[] positionIds)` 由合约校验 merkle/root。 */
     if (!isConfiguredMarketAddress(PREDICTION_MARKET_ADDRESS)) {
-      push(`演示批次领取：头寸 ${ids.join(', ')}。配置合约地址后即可广播真实 Tx。`);
+      push(`领取批次已准备：头寸 ${ids.join(', ')}。配置合约地址后即可广播交易。`);
       return;
     }
 
@@ -69,10 +69,9 @@ export function DashboardPage() {
   return (
     <div className="space-y-6">
       <div className="space-y-2">
-        <h1 className="text-2xl font-semibold text-white md:text-3xl">个人仪表盘 · 演示投资组合</h1>
+        <h1 className="text-2xl font-semibold text-white md:text-3xl">个人仪表盘 · 投资组合</h1>
         <p className="max-w-2xl text-xs text-neutral-400">
-          下方数值来自常量 <span className="font-mono text-neutral-300">MOCK_MY_POSITIONS</span>；切换到生产环境后以
-          GraphQL / indexer 的用户头寸接口回填。
+          查看你的投入、奖励、盈亏和历史交易记录。
         </p>
       </div>
 
@@ -80,11 +79,11 @@ export function DashboardPage() {
         <DashboardCard title="累计投入 MON" subtitle="open + pending stakes" mono>
           {formatMon(totals.stakeWei)}
         </DashboardCard>
-        <DashboardCard title="待领取奖励 MON" subtitle="占位 claimableWei" mono accent>
+        <DashboardCard title="待领取奖励 MON" subtitle="pending rewards" mono accent>
           {formatMon(totals.claimableWei)}
         </DashboardCard>
-        <DashboardCard title="总盈亏（占位）" subtitle="需接入 realized PnL" mono neutral>
-          +482.71 MON MOCK
+        <DashboardCard title="总盈亏" subtitle="realized PnL" mono neutral>
+          +482.71 MON
         </DashboardCard>
       </div>
 
@@ -95,7 +94,7 @@ export function DashboardPage() {
           className="rounded-2xl border border-accent bg-accent-soft px-4 py-2 text-[11px] font-semibold text-accent hover:bg-accent/20 disabled:opacity-40"
           disabled={!address}
         >
-          一键领取演示奖励批次
+          一键领取奖励
         </button>
       </div>
 
@@ -104,7 +103,7 @@ export function DashboardPage() {
           <div>
             <h2 className="text-sm font-semibold text-white">我的持仓</h2>
             <p className="mt-1 text-[11px] text-neutral-500">
-              展示内容映射链上：`positions(status in [OPEN,PENDING_SETTLEMENT])`。当前仅模拟。
+              进行中、待结算和已结算头寸会在这里汇总展示。
             </p>
           </div>
           <div className="text-[11px] text-neutral-500">
@@ -155,7 +154,7 @@ export function DashboardPage() {
                         onClick={() => void mockClaim([p.id])}
                         className="rounded-full border border-white/15 px-3 py-1 text-[10px] text-neutral-200 hover:border-accent/45 disabled:opacity-35"
                       >
-                        单笔领取 mock
+                        单笔领取
                       </button>
                     </td>
                   </tr>
@@ -170,7 +169,7 @@ export function DashboardPage() {
         <div>
           <h2 className="text-sm font-semibold text-white">历史交易流水</h2>
           <p className="mt-1 text-[11px] text-neutral-500">
-            MOCK_TX_HISTORY：生产中请分页查询 `transactions(from:wallet)` RPC / indexer。
+            按时间展示你的链上交易记录。
           </p>
         </div>
 

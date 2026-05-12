@@ -4,3 +4,4 @@
 - 网络与占位合约：参见 `README.md` 与根目录 `.env.example`。
 - 禁止引入：Dockerfile、后端服务、Solidity、Redux（状态以 React Query + 轻量 Context 为主）。
 - 动态数据占位集中在 `src/mock/*` 与注释中的「应从合约 XXX 读取」说明。
+- 面向用户的 UI 文案不要出现“模拟 / mock / 占位 / demo”等实现痕迹；需要假数据时也要表现为真实业务数据。

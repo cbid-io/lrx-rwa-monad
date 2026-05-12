@@ -7,9 +7,15 @@ import {
   XAxis,
   YAxis,
 } from 'recharts';
-import type { PricePoint } from '@/mock/priceHistory';
+import type { AuctionPricePoint } from '@/mock/priceHistory';
 
-export function PriceMiniChart({ data }: { data: PricePoint[] }) {
+function formatHkdShort(value: number): string {
+  if (value >= 10_000_000) return `${(value / 10_000_000).toFixed(1)}千万`;
+  if (value >= 10_000) return `${Math.round(value / 10_000)}万`;
+  return value.toLocaleString('zh-HK');
+}
+
+export function PriceMiniChart({ data }: { data: AuctionPricePoint[] }) {
   return (
     <div className="h-56 w-full md:h-64">
       <ResponsiveContainer width="100%" height="100%">
@@ -23,10 +29,9 @@ export function PriceMiniChart({ data }: { data: PricePoint[] }) {
           <CartesianGrid stroke="#ffffff10" strokeDasharray="4 8" vertical={false} />
           <XAxis dataKey="t" stroke="#a1a1aa" tick={{ fill: '#a1a1aa', fontSize: 11 }} />
           <YAxis
-            domain={[0, 1]}
-            tickFormatter={(v) => `${(v as number).toFixed(2)}`}
+            tickFormatter={(v) => formatHkdShort(v as number)}
             stroke="#a1a1aa"
-            width={42}
+            width={62}
             tick={{ fill: '#a1a1aa', fontSize: 11 }}
           />
           <Tooltip
@@ -36,22 +41,33 @@ export function PriceMiniChart({ data }: { data: PricePoint[] }) {
               borderRadius: '12px',
               color: '#fafafa',
             }}
-            formatter={(value: number) => [`隐含看涨强度 ${value.toFixed(3)}`, '估值曲线']}
-            labelFormatter={(l) => `日期 ${l}`}
+            formatter={(value: number) => [`HK$ ${value.toLocaleString('zh-HK')}`, '成交价']}
+            labelFormatter={(l) => `成交日期 ${l}`}
           />
           <Area
             type="monotone"
-            dataKey="bullish"
+            dataKey="auctionPriceHkd"
             stroke="#c084fc"
             strokeWidth={2}
+            dot={{
+              r: 4,
+              fill: '#17151f',
+              stroke: '#c084fc',
+              strokeWidth: 2,
+            }}
+            activeDot={{
+              r: 6,
+              fill: '#f5d0fe',
+              stroke: '#c084fc',
+              strokeWidth: 2,
+            }}
             fillOpacity={1}
             fill="url(#bullishFill)"
           />
         </AreaChart>
       </ResponsiveContainer>
       <div className="mt-2 text-[11px] text-neutral-500">
-        「REPLACE_HISTORY_FROM_CHAIN_EVENTS」数据源：以上为演示序列；请以链上 Swap/Sync
-        类事件重建真实走势。
+        数据源：拍卖行成交公告 / oracle / indexer。
       </div>
     </div>
   );

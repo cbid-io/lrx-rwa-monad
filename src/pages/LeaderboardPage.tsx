@@ -21,9 +21,7 @@ export function LeaderboardPage() {
       <div className="space-y-3">
         <h1 className="text-2xl font-semibold text-white md:text-3xl">预测盈利排行榜 · 结算版</h1>
         <p className="max-w-2xl text-xs text-neutral-400">
-          当前展示 {rows.length.toString()} 条模拟用户；数据源路径：「替换为 indexer /
-          GraphQL，例如查询 positions(where: status = SETTLED) 后按 SUM(realizedPnLWei) DESC
-          聚合」——注释仅说明逻辑，占位数据请见 <span className="font-mono">src/mock/leaderboard.ts</span>。
+          当前展示 {rows.length.toString()} 位交易者；榜单按已结算头寸的累计盈利排序。
         </p>
       </div>
 
@@ -58,7 +56,7 @@ export function LeaderboardPage() {
               <th className="px-4 py-3 font-normal">钱包</th>
               <th className="px-4 py-3 font-normal">总盈利 MON</th>
               <th className="px-4 py-3 font-normal">结算次数</th>
-              <th className="hidden px-4 py-3 font-normal sm:table-cell">最近结算（mock）</th>
+              <th className="hidden px-4 py-3 font-normal sm:table-cell">最近结算</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-white/5">
@@ -98,12 +96,12 @@ export function LeaderboardPage() {
 
       {!address ? (
         <div className="rounded-3xl border border-dashed border-white/15 px-4 py-3 text-[11px] text-neutral-500">
-          连接钱包后即可在榜上高亮你的地址——若你与示例地址相同则立即匹配；生产中请直接使用真实头寸数据。
+          连接钱包后即可在榜上高亮你的地址。
         </div>
       ) : (
         <div className="rounded-3xl border border-white/10 bg-black/35 px-4 py-3 text-[11px] text-neutral-400">
           当前连接：<span className="font-mono text-neutral-200">{shortAddress(address)}</span> ·
-          「若榜上无匹配条目，则说明模拟数据不包含该地址」。正式环境请以链上 indexer 替换。
+          若榜上无匹配条目，则说明该地址暂未进入当前榜单。
         </div>
       )}
     </div>

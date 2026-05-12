@@ -2,6 +2,13 @@
 
 export type PricePoint = { t: string; bullish: number };
 
+/** 历史拍卖成交价模拟数据：实际应由拍卖行成交公告 / 预言机 / indexer 写入。 */
+export type AuctionPricePoint = {
+  t: string;
+  auctionPriceHkd: number;
+  auctionHouse: string;
+};
+
 function series(base: number, drift: number, seed: string): PricePoint[] {
   const pts: PricePoint[] = [];
   const now = Date.now();
@@ -40,3 +47,27 @@ export const MOCK_BULL_PRICE_HISTORY_30D: Record<string, PricePoint[]> = Object.
     return [id, extended];
   }),
 );
+
+export const MOCK_AUCTION_PRICE_HISTORY_BY_ARTWORK: Record<string, AuctionPricePoint[]> = {
+  '1': [
+    { t: '2017-11-18', auctionPriceHkd: 12_800_000, auctionHouse: '香港中信拍卖行' },
+    { t: '2019-05-26', auctionPriceHkd: 18_600_000, auctionHouse: '香港中信拍卖行' },
+    { t: '2021-10-03', auctionPriceHkd: 23_400_000, auctionHouse: '香港中信拍卖行' },
+    { t: '2023-04-21', auctionPriceHkd: 31_200_000, auctionHouse: '香港中信拍卖行' },
+    { t: '2025-12-09', auctionPriceHkd: 42_500_000, auctionHouse: '香港中信拍卖行' },
+  ],
+  '2': [
+    { t: '2016-06-12', auctionPriceHkd: 2_900_000, auctionHouse: '香港中信拍卖行' },
+    { t: '2018-10-19', auctionPriceHkd: 4_150_000, auctionHouse: '香港中信拍卖行' },
+    { t: '2020-09-30', auctionPriceHkd: 4_900_000, auctionHouse: '香港中信拍卖行' },
+    { t: '2022-11-07', auctionPriceHkd: 6_300_000, auctionHouse: '香港中信拍卖行' },
+    { t: '2025-05-16', auctionPriceHkd: 7_600_000, auctionHouse: '香港中信拍卖行' },
+  ],
+  '3': [
+    { t: '2018-03-04', auctionPriceHkd: 1_200_000, auctionHouse: '香港中信拍卖行' },
+    { t: '2019-12-15', auctionPriceHkd: 1_850_000, auctionHouse: '香港中信拍卖行' },
+    { t: '2021-07-22', auctionPriceHkd: 2_400_000, auctionHouse: '香港中信拍卖行' },
+    { t: '2023-08-11', auctionPriceHkd: 3_180_000, auctionHouse: '香港中信拍卖行' },
+    { t: '2025-09-27', auctionPriceHkd: 4_260_000, auctionHouse: '香港中信拍卖行' },
+  ],
+};

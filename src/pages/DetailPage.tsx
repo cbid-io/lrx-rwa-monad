@@ -1,20 +1,14 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Link, Navigate, useParams } from 'react-router-dom';
 import { formatEther, parseEther } from 'viem';
 import { useAccount, useWriteContract } from 'wagmi';
 import { MOCK_ARTWORKS } from '@/mock/artworks';
 import {
-  MOCK_BULL_PRICE_HISTORY_30D,
-  MOCK_BULL_PRICE_HISTORY_BY_ARTWORK,
-  type PricePoint,
+  MOCK_AUCTION_PRICE_HISTORY_BY_ARTWORK,
+  type AuctionPricePoint,
 } from '@/mock/priceHistory';
-import {
-  MOCK_PREDICTION_EVENTS_BY_ART,
-  type ArtworkPredictionEvent,
-} from '@/mock/userData';
-import { countdownLabel, formatUsd, shortAddress } from '@/lib/format';
-import { FAUCET_INFO } from '@/lib/monad';
-import { paginatePredictionsHistory } from '@/lib/pagination';
+import { MOCK_MARKET_TABS_BY_ARTWORK, type MarketTabData } from '@/mock/marketTabs';
+import { formatUsd, shortAddress } from '@/lib/format';
 import { PriceMiniChart } from '@/components/PriceMiniChart';
 import { predictionMarketAbi } from '@/abi/predictionMarket';
 import { useToast } from '@/context/Toast';
@@ -23,152 +17,168 @@ import { usePoolTicker } from '@/hooks/usePoolTicker';
 import { MONAD_EXPLORER_TX, monadTestnet } from '@/lib/monad';
 import { useTxReceiptFeedback } from '@/hooks/useTxFeedback';
 
-type RangePreset = '7d' | '30d';
-
-function SettlementBlock({
-  artworkId,
-}: {
-  artworkId: string;
-}) {
-  const artwork = MOCK_ARTWORKS.find((a) => a.id === artworkId);
-  if (!artwork?.finalRealPriceUsd) return null;
-  const est = artwork.appraisalValueUsd;
-
-  const steps = [
-    { title: '锁仓到期', meta: artwork.predictionEndsAt + 1000 * 60 },
-    {
-      title: '预言机上链',
-      meta: artwork.predictionEndsAt + 1000 * 60 * 32,
-      note: `依据 ArteMetrics + ${artwork.appraiserOrg} 线下估值快照`,
-    },
-    {
-      title: 'AMM 头寸结算',
-      meta: artwork.predictionEndsAt + 1000 * 60 * 90,
-      note: `调用合约结算函数（演示文案；替换为实盘 finalizeSettlement）`,
-    },
-  ];
-
-  return (
-    <div className="space-y-4 rounded-3xl border border-accent/35 bg-accent-soft px-5 py-4">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <h3 className="text-sm font-semibold text-white">预测结果与结算依据</h3>
-        <span className="rounded-full border border-accent/35 bg-accent/10 px-2 py-0.5 text-[10px] uppercase tracking-[0.2em] text-accent">
-          SETTLED MOCK
-        </span>
-      </div>
-      <div className="grid gap-3 md:grid-cols-[minmax(0,2fr)_minmax(0,1.2fr)]">
-        <div className="rounded-2xl bg-white/[0.02] px-4 py-3">
-          <div className="text-[11px] text-neutral-500">成交价（Oracle 入账）</div>
-          <div className="mt-2 text-xl font-semibold text-white">{formatUsd(artwork.finalRealPriceUsd)}</div>
-          <div className="mt-2 text-[11px] text-neutral-500">预测期估值快照</div>
-          <div className="mt-1 text-lg text-accent">{formatUsd(est)}</div>
-          <p className="mt-3 text-[11px] leading-relaxed text-neutral-400">
-            价差 {formatUsd(artwork.finalRealPriceUsd - est)}，
-            「判定文案」：若成交价高于池中多方阈值，看涨头寸按份额占比领取奖励；以下为演示说明，请以正式合约白皮书为准。
-          </p>
-        </div>
-        <div className="rounded-2xl border border-white/10 bg-neutral-950/60 px-4 py-3 text-xs text-neutral-300">
-          <div className="text-[11px] font-semibold text-neutral-200">判定依据摘要</div>
-          <ul className="mt-2 list-disc space-y-1 pl-4 text-[11px] text-neutral-400">
-            <li>托管收据链上 CID + 离线鉴定 PDF 哈希（演示占位）</li>
-            <li>预言机数据源：EU ArteMetrics 官方 API（替换为实盘 URL）</li>
-            <li>结算窗口触发事件：`predictionSettled(bytes32,uint256,uint256)`</li>
-          </ul>
-        </div>
-      </div>
-      <div>
-        <div className="text-[11px] font-semibold text-neutral-200">结算时间轴</div>
-        <div className="relative mt-3 space-y-3 border-l border-dashed border-white/15 pl-4">
-          {steps.map((s) => (
-            <div key={s.title} className="relative pl-3">
-              <span className="absolute -left-[7px] top-2 h-2 w-2 rounded-full bg-accent" />
-              <div className="text-xs font-semibold text-white">{s.title}</div>
-              <div className="text-[11px] text-neutral-500">
-                {new Date(s.meta).toLocaleString()}
-              </div>
-              {s.note ? <div className="mt-1 text-[11px] text-neutral-400">{s.note}</div> : null}
-            </div>
-          ))}
-        </div>
-      </div>
-    </div>
-  );
+function formatHkd(value: number): string {
+  return new Intl.NumberFormat('zh-HK', {
+    style: 'currency',
+    currency: 'HKD',
+    maximumFractionDigits: 0,
+  }).format(value);
 }
 
-function HistoryTable({
-  rows,
+function formatDollarAmount(value: number): string {
+  const abs = Math.abs(value);
+  const formatted = abs.toLocaleString('en-US', {
+    minimumFractionDigits: 1,
+    maximumFractionDigits: 1,
+  });
+  return value < 0 ? `-$${formatted}` : `$${formatted}`;
+}
+
+type MarketInfoTab = 'comments' | 'holders' | 'positions' | 'activity';
+
+const MARKET_INFO_TABS: Array<{ id: MarketInfoTab; label: string }> = [
+  { id: 'comments', label: '评论' },
+  { id: 'holders', label: '顶级持仓者' },
+  { id: 'positions', label: '持仓' },
+  { id: 'activity', label: '动态' },
+];
+
+function sideLabel(side: 'yes' | 'no') {
+  return side === 'yes' ? '是' : '否';
+}
+
+function sideClass(side: 'yes' | 'no') {
+  return side === 'yes' ? 'bg-emerald-500/15 text-emerald-300' : 'bg-rose-500/15 text-rose-300';
+}
+
+function MarketInfoTabs({
+  activeTab,
+  data,
+  onTabChange,
 }: {
-  rows: readonly ArtworkPredictionEvent[];
+  activeTab: MarketInfoTab;
+  data: MarketTabData;
+  onTabChange: (tab: MarketInfoTab) => void;
 }) {
-  const pageSize = 6;
-  const [page, setPage] = useState(1);
-  const headId = rows[0]?.id;
-
-  useEffect(() => {
-    /** 切换到不同艺术品时复位分页：`rows` 实际由合约分页游标驱动。 */
-    setPage(1);
-  }, [rows.length, headId]);
-  const sliced = useMemo(() => paginatePredictionsHistory(rows, page, pageSize), [rows, page]);
-  const totalPages = Math.max(1, Math.ceil(sliced.total / pageSize));
-
   return (
-    <div className="space-y-3">
-      <div className="overflow-x-auto rounded-2xl border border-white/10">
-        <table className="min-w-full divide-y divide-white/5 text-[11px]">
-          <thead className="bg-white/[0.02]">
-            <tr className="text-left text-neutral-400">
-              <th className="px-4 py-2 font-normal">参与者</th>
-              <th className="px-4 py-2 font-normal">方向</th>
-              <th className="px-4 py-2 font-normal">数额</th>
-              <th className="hidden px-4 py-2 font-normal sm:table-cell">时间</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-white/5">
-            {sliced.items.map((r) => (
-              <tr key={r.id} className="text-neutral-200">
-                <td className="px-4 py-2 font-mono text-[11px]">{shortAddress(r.actor)}</td>
-                <td className="px-4 py-2">
-                  <span
-                    className={`rounded-full px-2 py-0.5 ${
-                      r.side === 'bull'
-                        ? 'bg-emerald-500/15 text-emerald-300'
-                        : 'bg-rose-500/15 text-rose-300'
-                    }`}
-                  >
-                    {r.side === 'bull' ? '看涨' : '看跌'}
-                  </span>
-                </td>
-                <td className="px-4 py-2">{Number(formatEther(BigInt(r.amountWei))).toFixed(2)} MON</td>
-                <td className="hidden whitespace-nowrap px-4 py-2 text-neutral-500 sm:table-cell">
-                  {new Date(r.time).toLocaleString()}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+    <div className="rounded-[28px] border border-white/10 bg-white/[0.03] p-3">
+      <div className="flex gap-1 overflow-x-auto rounded-2xl bg-neutral-950/75 p-1 text-[11px]">
+        {MARKET_INFO_TABS.map((tab) => (
+          <button
+            key={tab.id}
+            type="button"
+            onClick={() => onTabChange(tab.id)}
+            className={`shrink-0 rounded-xl px-3 py-2 font-semibold transition ${
+              activeTab === tab.id ? 'bg-white text-neutral-950' : 'text-neutral-400 hover:text-white'
+            }`}
+          >
+            {tab.label}
+          </button>
+        ))}
       </div>
-      <div className="flex items-center justify-between text-[11px] text-neutral-500">
-        <span>
-          第 {page} / {totalPages} 页「替换为 indexer 分页游标」。
-        </span>
-        <div className="flex gap-2">
-          <button
-            type="button"
-            disabled={page <= 1}
-            onClick={() => setPage((p) => Math.max(1, p - 1))}
-            className="rounded-full border border-white/10 px-3 py-1 text-xs text-neutral-200 disabled:opacity-40"
-          >
-            上一页
-          </button>
-          <button
-            type="button"
-            disabled={page >= totalPages}
-            onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-            className="rounded-full border border-white/10 px-3 py-1 text-xs text-neutral-200 disabled:opacity-40"
-          >
-            下一页
-          </button>
-        </div>
+
+      <div className="mt-3">
+        {activeTab === 'comments' ? (
+          <div className="space-y-3">
+            {data.comments.map((comment) => (
+              <div key={comment.id} className="rounded-2xl border border-white/10 bg-black/30 p-3">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="font-semibold text-white">{comment.user}</span>
+                      <span className="text-neutral-500">{comment.handle}</span>
+                      {comment.badge ? (
+                        <span className="rounded-full bg-accent-soft px-2 py-0.5 text-[10px] font-semibold text-accent">
+                          {comment.badge}
+                        </span>
+                      ) : null}
+                    </div>
+                    <p className="mt-2 text-xs leading-relaxed text-neutral-300">{comment.text}</p>
+                  </div>
+                  <span className="shrink-0 text-[10px] text-neutral-600">{comment.time}</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : null}
+
+        {activeTab === 'holders' ? (
+          <div className="space-y-2">
+            {data.holders.map((holder, idx) => (
+              <div
+                key={holder.id}
+                className="grid grid-cols-[28px_minmax(0,1fr)_auto] items-center gap-3 rounded-2xl border border-white/10 bg-black/30 p-3 text-xs"
+              >
+                <div className="text-center font-semibold text-neutral-500">#{idx + 1}</div>
+                <div className="min-w-0">
+                  <div className="font-mono text-neutral-200">{shortAddress(holder.wallet)}</div>
+                  <div className="mt-1 truncate text-[11px] text-neutral-500">{holder.tierLabel}</div>
+                </div>
+                <div className="text-right">
+                  <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${sideClass(holder.side)}`}>
+                    {sideLabel(holder.side)}
+                  </span>
+                  <div className="mt-1 font-semibold text-white">{formatDollarAmount(holder.valueUsd)}</div>
+                  <div className="text-[10px] text-neutral-500">{holder.shares.toLocaleString('zh-CN')} 份额</div>
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : null}
+
+        {activeTab === 'positions' ? (
+          <div className="space-y-2">
+            {data.positions.map((position) => (
+              <div key={position.id} className="rounded-2xl border border-white/10 bg-black/30 p-3 text-xs">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <div className="truncate font-semibold text-white">{position.tierLabel}</div>
+                    <div className="mt-1 text-[11px] text-neutral-500">
+                      均价 {position.avgPriceCents}¢ · {position.shares.toLocaleString('zh-CN')} 份额
+                    </div>
+                  </div>
+                  <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${sideClass(position.side)}`}>
+                    {sideLabel(position.side)}
+                  </span>
+                </div>
+                <div className="mt-3 flex items-center justify-between border-t border-white/10 pt-2 text-[11px]">
+                  <span className="text-neutral-500">未实现盈亏</span>
+                  <span className={position.pnlUsd >= 0 ? 'font-semibold text-emerald-300' : 'font-semibold text-rose-300'}>
+                    {position.pnlUsd >= 0 ? '+' : ''}
+                    {formatDollarAmount(position.pnlUsd)}
+                  </span>
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : null}
+
+        {activeTab === 'activity' ? (
+          <div className="space-y-2">
+            {data.activity.map((item) => (
+              <div key={item.id} className="rounded-2xl border border-white/10 bg-black/30 p-3 text-xs">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <div className="font-mono text-neutral-200">{shortAddress(item.wallet)}</div>
+                    <div className="mt-1 truncate text-[11px] text-neutral-500">{item.tierLabel}</div>
+                  </div>
+                  <span className="shrink-0 text-[10px] text-neutral-600">{item.time}</span>
+                </div>
+                <div className="mt-2 flex items-center justify-between text-[11px]">
+                  <span className="text-neutral-400">
+                    {item.action}
+                    <span className={`ml-1 rounded-full px-2 py-0.5 font-semibold ${sideClass(item.side)}`}>
+                      {sideLabel(item.side)}
+                    </span>
+                  </span>
+                  <span className="font-semibold text-white">
+                    {formatDollarAmount(item.amountUsd)} · {item.priceCents}¢
+                  </span>
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : null}
       </div>
     </div>
   );
@@ -191,10 +201,11 @@ export function DetailPage() {
   const now = Date.now();
   const { push } = useToast();
 
-  const [range, setRange] = useState<RangePreset>('7d');
-  const [outcome, setOutcome] = useState<'bull' | 'bear'>('bull');
-  const [amount, setAmount] = useState('0.05');
+  const [selectedTierId, setSelectedTierId] = useState('hkd-5000w');
+  const [selectedSide, setSelectedSide] = useState<'yes' | 'no'>('yes');
+  const [amount, setAmount] = useState('50');
   const [txHash, setTxHash] = useState<`0x${string}` | undefined>();
+  const [activeInfoTab, setActiveInfoTab] = useState<MarketInfoTab>('comments');
 
   const { address, chainId } = useAccount();
   const { writeContractAsync, isPending } = useWriteContract();
@@ -202,14 +213,15 @@ export function DetailPage() {
 
   const ticker = usePoolTicker(poolSeed);
 
-  const chartData: PricePoint[] = useMemo(() => {
+  const chartData: AuctionPricePoint[] = useMemo(() => {
     if (!artworkCandidate) return [];
-    const src =
-      range === '7d'
-        ? MOCK_BULL_PRICE_HISTORY_BY_ARTWORK[artworkCandidate.id]
-        : MOCK_BULL_PRICE_HISTORY_30D[artworkCandidate.id];
-    return src ?? MOCK_BULL_PRICE_HISTORY_BY_ARTWORK[artworkCandidate.id] ?? [];
-  }, [artworkCandidate, range]);
+    return MOCK_AUCTION_PRICE_HISTORY_BY_ARTWORK[artworkCandidate.id] ?? [];
+  }, [artworkCandidate]);
+
+  const marketTabData = useMemo(() => {
+    if (!artworkCandidate) return MOCK_MARKET_TABS_BY_ARTWORK['1'];
+    return MOCK_MARKET_TABS_BY_ARTWORK[artworkCandidate.id] ?? MOCK_MARKET_TABS_BY_ARTWORK['1'];
+  }, [artworkCandidate]);
 
   if (!id || !artworkCandidate) {
     return <Navigate to="/" replace />;
@@ -219,6 +231,10 @@ export function DetailPage() {
 
   const predictionOpen = artwork.predictionEndsAt > now;
   const explorerBase = MONAD_EXPLORER_TX;
+  const totalVolumeUsd = Number(formatEther(BigInt(artwork.totalLockedMonWei)));
+  const marketRows = artwork.priceTiers;
+  const selectedTier = marketRows.find((tier) => tier.id === selectedTierId) ?? marketRows[0]!;
+
   const onTrade = async () => {
     if (!address) {
       push('请先连接钱包再进行预测。');
@@ -237,7 +253,7 @@ export function DetailPage() {
     try {
       value = parseEther(amount);
     } catch {
-      push('请输入合法的 MON 数量（形如 0.05）。');
+      push('请输入合法的金额（例如 50）。');
       return;
     }
 
@@ -247,13 +263,17 @@ export function DetailPage() {
     }
 
     if (!isConfiguredMarketAddress(PREDICTION_MARKET_ADDRESS)) {
-      push('尚未配置合约地址：`VITE_PREDICTION_MARKET_ADDRESS`，当前为离线演示模式。');
+      push('尚未配置合约地址：`VITE_PREDICTION_MARKET_ADDRESS`，当前仅可查看页面内容。');
       return;
     }
 
     try {
       setTxHash(undefined);
       push('等待钱包弹出签名面板…');
+      const tierIndex = Math.max(
+        0,
+        artwork.priceTiers.findIndex((tier) => tier.id === selectedTier.id),
+      );
 
       const h = await writeContractAsync({
         account: address,
@@ -261,10 +281,10 @@ export function DetailPage() {
         abi: predictionMarketAbi,
         chainId: monadTestnet.id,
         functionName: 'buyOutcome',
-        /** 此方法名与 ABI 与实际部署合约对齐；参数顺序请按链上源码核对。 */
+        /** outcomeCode 为占位：tierIndex * 2 + side（是=0，否=1）；实盘请按合约枚举定义对齐。 */
         args: [
           BigInt(artwork.id),
-          outcome === 'bull' ? 0 : 1,
+          tierIndex * 2 + (selectedSide === 'yes' ? 0 : 1),
           value,
         ],
         value,
@@ -289,7 +309,7 @@ export function DetailPage() {
         msg.toLowerCase().includes('reject')
           ? '您在钱包取消了本次操作。'
           : msg.includes('insufficient funds') || msg.toLowerCase().includes('gas')
-            ? '余额不足以支付下注或手续费，请参考页面提示先到 Discord 水龙头领取 MON。'
+            ? '余额不足以支付交易或手续费，请检查钱包余额。'
             : `写入失败（可能合约未部署或未升级 ABI）：${msg.slice(0, 180)}`,
         'error',
       );
@@ -298,241 +318,273 @@ export function DetailPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-wrap gap-4 text-[11px] text-neutral-500">
-        <Link to="/" className="text-accent hover:text-fuchsia-200">
-          ← 返回列表
-        </Link>
-      </div>
+      <Link to="/" className="inline-flex text-[11px] text-accent hover:text-fuchsia-200">
+        ← 返回艺术品市场
+      </Link>
 
-      <div className="grid gap-6 lg:grid-cols-[minmax(0,3fr)_minmax(0,2.1fr)]">
-        <div className="space-y-6">
-          <div className="overflow-hidden rounded-3xl border border-white/10 bg-black/40 shadow-xl shadow-purple-950/40">
-            <div className="relative aspect-video">
+      <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_380px]">
+        <main className="space-y-5">
+          <section className="rounded-[28px] border border-white/10 bg-white/[0.03] p-4 shadow-xl shadow-purple-950/25 md:p-6">
+            <div className="flex flex-wrap items-start gap-4">
               <img
-                src={artwork.heroImage}
+                src={artwork.thumbnail}
                 alt={artwork.title}
-                className="h-full w-full object-cover"
+                className="h-16 w-16 rounded-2xl object-cover ring-1 ring-white/10 md:h-20 md:w-20"
               />
-              <span className="absolute left-4 top-4 rounded-full bg-neutral-950/70 px-3 py-1 text-[11px] text-accent shadow-lg">
-                {predictionOpen ? '预测进行中 MOCK' : '已结算 MOCK'}
-              </span>
-            </div>
-          </div>
-          <div className="space-y-4 rounded-3xl border border-white/10 bg-white/[0.02] p-5">
-            <div>
-              <h1 className="text-xl font-semibold text-white md:text-2xl">{artwork.title}</h1>
-              <p className="mt-1 text-xs text-neutral-400">
-                {artwork.artist} · {artwork.year}
-              </p>
-            </div>
-            <p className="text-sm text-neutral-300">{artwork.medium}</p>
-            <div>
-              <div className="text-xs font-semibold text-neutral-200">传承记录</div>
-              <ul className="mt-2 list-disc space-y-1 pl-4 text-xs text-neutral-400">
-                {artwork.provenance.map((p) => (
-                  <li key={p}>{p}</li>
-                ))}
-              </ul>
-            </div>
-            <div className="grid gap-4 text-xs text-neutral-300 md:grid-cols-2">
-              <div>
-                <span className="text-neutral-500">鉴定机构</span>
-                <div className="mt-1 text-sm font-medium text-neutral-100">{artwork.appraiserOrg}</div>
-              </div>
-              <div>
-                <span className="text-neutral-500">托管机构</span>
-                <div className="mt-1 text-sm font-medium text-neutral-100">{artwork.custodian}</div>
-              </div>
-              <div>
-                <span className="text-neutral-500">当前估值快照</span>
-                <div className="mt-1 text-accent">{formatUsd(artwork.appraisalValueUsd)}</div>
-                <div className="mt-1 text-[11px] text-neutral-500">
-                  预测窗口结束时间：
-                  <span className="text-neutral-200">
-                    {new Date(artwork.predictionEndsAt).toLocaleString()}
+              <div className="min-w-0 flex-1">
+                <div className="mb-2 flex flex-wrap items-center gap-2 text-[11px] text-neutral-500">
+                  <span className="rounded-full border border-white/10 px-2 py-1">艺术品 RWA</span>
+                  <span>拍卖成交价预测</span>
+                  <span>{artwork.auctionHouse}</span>
+                </div>
+                <h1 className="text-2xl font-semibold leading-tight text-white md:text-4xl">
+                  {artwork.marketTitle}
+                </h1>
+                <div className="mt-4 flex flex-wrap items-center gap-x-6 gap-y-2 text-xs text-neutral-400">
+                  <span>
+                    {formatUsd(totalVolumeUsd)} <span className="text-neutral-500">交易量</span>
                   </span>
-                  {predictionOpen ? ` · 还剩 ${countdownLabel(artwork.predictionEndsAt, now)}` : null}
+                  <span>拍卖日（香港时间）：{artwork.auctionDateHkt}</span>
+                  <span>预测截止时间：{artwork.predictionDeadlineHkt}</span>
                 </div>
               </div>
             </div>
-            <details className="rounded-2xl border border-white/10 bg-neutral-950/40 p-3 text-[11px] text-neutral-400">
-              <summary className="cursor-pointer select-none text-neutral-300">水龙头说明</summary>
-              <p className="mt-2 leading-relaxed">{FAUCET_INFO}</p>
-            </details>
-          </div>
-          {!predictionOpen ? <SettlementBlock artworkId={artwork.id} /> : null}
 
-          <div className="space-y-3 rounded-3xl border border-white/10 bg-neutral-950/40 p-4">
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <h3 className="text-sm font-semibold text-white">看涨代币价格迷你走势（演示）</h3>
-              <div className="flex gap-2 text-[11px]">
-                {(['7d', '30d'] as const).map((r) => (
-                  <button
-                    key={r}
-                    type="button"
-                    onClick={() => setRange(r)}
-                    className={`rounded-full px-3 py-1 transition ${
-                      range === r
-                        ? 'bg-accent text-[#17081f]'
-                        : 'border border-white/15 text-neutral-300 hover:border-accent/45'
+            <div className="mt-6 divide-y divide-white/5 overflow-hidden rounded-2xl border border-white/10">
+              {marketRows.map((row) => {
+                const isSelected = selectedTier.id === row.id;
+                return (
+                  <div
+                    key={row.id}
+                    className={`grid gap-3 p-4 transition md:grid-cols-[minmax(0,1fr)_90px_110px_110px] md:items-center ${
+                      isSelected
+                        ? 'bg-accent-soft ring-1 ring-inset ring-accent/45'
+                        : 'bg-neutral-950/40 hover:bg-white/[0.04]'
                     }`}
                   >
-                    {r === '7d' ? '最近 7 天' : '最近 30 天'}
-                  </button>
-                ))}
-              </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSelectedTierId(row.id);
+                        setSelectedSide('yes');
+                      }}
+                      className="min-w-0 text-left"
+                    >
+                      <div className="flex min-w-0 items-center gap-2">
+                        <div className="truncate text-sm font-medium text-white">{row.label}</div>
+                        {isSelected ? (
+                          <span className="shrink-0 rounded-full bg-accent px-2 py-0.5 text-[10px] font-semibold text-[#14061f]">
+                            当前预测
+                          </span>
+                        ) : null}
+                      </div>
+                      <div className={`mt-1 text-[11px] ${isSelected ? 'text-neutral-300' : 'text-neutral-500'}`}>
+                        阈值：{formatHkd(row.thresholdHkd)} · 拍卖行：{artwork.auctionHouse}
+                      </div>
+                    </button>
+                    <div className="text-left md:text-right">
+                      <div className="text-2xl font-semibold text-white">{row.probability}%</div>
+                      <div className="text-[10px] text-neutral-500">当前概率</div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSelectedTierId(row.id);
+                        setSelectedSide('yes');
+                      }}
+                      className={`rounded-xl px-3 py-2 text-xs font-semibold hover:bg-emerald-500/25 ${
+                        isSelected && selectedSide === 'yes'
+                          ? 'bg-emerald-500 text-emerald-950'
+                          : 'bg-emerald-500/15 text-emerald-300'
+                      }`}
+                    >
+                      买入 是 {row.yesPriceCents}¢
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSelectedTierId(row.id);
+                        setSelectedSide('no');
+                      }}
+                      className={`rounded-xl px-3 py-2 text-xs font-semibold hover:bg-rose-500/25 ${
+                        isSelected && selectedSide === 'no'
+                          ? 'bg-rose-500 text-rose-50'
+                          : 'bg-rose-500/15 text-rose-300'
+                      }`}
+                    >
+                      买入 否 {row.noPriceCents}¢
+                    </button>
+                  </div>
+                );
+              })}
             </div>
-            <PriceMiniChart data={chartData} />
-          </div>
-        </div>
 
-        <aside className="flex flex-col gap-4 lg:sticky lg:top-24">
-          <div className="space-y-4 rounded-3xl border border-white/10 bg-gradient-to-b from-fuchsia-500/15 to-transparent p-4">
-            <div className="flex items-center justify-between gap-4">
-              <div>
-                <div className="text-[11px] text-neutral-400">实盘价格读数</div>
-                <div className="mt-2 text-xl font-semibold text-white md:text-2xl">
-                  看涨 {(ticker.snap.bullish * 100).toFixed(1)}%
-                </div>
-                <div className="mt-2 text-[11px] text-neutral-500">
-                  看跌份额等价约 {(ticker.snap.bearish * 100).toFixed(1)}% · 应由 `getPoolTotals` +
-                  CFMM 推导
-                </div>
-              </div>
+            <div className="mt-4 flex flex-wrap items-center justify-between gap-3 text-[11px] text-neutral-500">
+              <span>预测截止：{artwork.predictionDeadlineHkt}</span>
               <button
                 type="button"
                 onClick={() => {
                   ticker.manualRefresh();
-                  push('已触发本地占位刷新 · 生产中请改为 `wagmi.invalidateQueries`。');
+                  push('已刷新价格。');
                 }}
-                className="rounded-2xl border border-white/20 bg-neutral-950/70 px-3 py-2 text-[11px] text-neutral-200 hover:border-accent/45"
+                className="rounded-full border border-white/15 px-3 py-1.5 text-neutral-300 hover:border-accent/45"
               >
-                手动刷新池子快照
+                手动刷新价格
               </button>
             </div>
-            <div className="grid grid-cols-2 gap-3 text-[11px] text-neutral-200">
-              <div className="rounded-2xl bg-black/35 p-3">
-                <div className="text-neutral-400">看涨锁仓示意</div>
-                <div className="mt-2 text-xl font-semibold text-emerald-300">{ticker.distribution.bullPct}%</div>
-              </div>
-              <div className="rounded-2xl bg-black/35 p-3">
-                <div className="text-neutral-400">看跌锁仓示意</div>
-                <div className="mt-2 text-xl font-semibold text-rose-300">{ticker.distribution.bearPct}%</div>
-              </div>
-            </div>
+          </section>
 
-            <div className="space-y-2 rounded-2xl bg-black/30 p-3 text-[11px] text-neutral-300">
-              <div className="flex items-center justify-between">
-                <span>总锁仓价值（占位 wei）</span>
-                <span className="font-semibold text-white">
-                  {Number(formatEther(BigInt(artwork.totalLockedMonWei))).toFixed(1)} MON
+          <section className="space-y-4 rounded-[28px] border border-white/10 bg-neutral-950/40 p-4 md:p-5">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <h2 className="text-sm font-semibold text-white">历史拍卖成交价</h2>
+              <span className="rounded-full border border-white/10 px-3 py-1 text-[11px] text-neutral-400">
+                5 次成交
+              </span>
+            </div>
+            <PriceMiniChart data={chartData} />
+          </section>
+
+          <section className="grid gap-4 md:grid-cols-[1.05fr_0.95fr]">
+            <div className="space-y-4 rounded-[28px] border border-white/10 bg-white/[0.02] p-5">
+              <h2 className="text-sm font-semibold text-white">规则</h2>
+              <p className="text-sm leading-relaxed text-neutral-300">
+                本市场预测 {artwork.title} 在 {artwork.auctionHouse} 于香港时间
+                {artwork.auctionDateHkt} 举行拍卖时的最终成交价。每个价格档位独立结算：
+                若最终成交价大于等于该档阈值，则该档「是」份额胜出；否则「否」份额胜出。
+              </p>
+              <p className="text-xs leading-relaxed text-neutral-500">
+                预测截止时间为 {artwork.predictionDeadlineHkt}。主要结算来源为
+                {artwork.auctionHouse} 官方成交公告、{artwork.appraiserOrg} 与链上托管收据。
+                实盘请将规则文本、预言机地址和最终判定事件写入合约或 indexer。
+              </p>
+            </div>
+            <div className="space-y-3 rounded-[28px] border border-white/10 bg-white/[0.02] p-5">
+              <h2 className="text-sm font-semibold text-white">盘口背景</h2>
+              <div className="grid grid-cols-2 gap-3 text-xs">
+                <div>
+                  <div className="text-neutral-500">拍卖行</div>
+                  <div className="mt-1 font-semibold text-white">{artwork.auctionHouse}</div>
+                </div>
+                <div>
+                  <div className="text-neutral-500">拍卖日期</div>
+                  <div className="mt-1 font-semibold text-white">{artwork.auctionDateHkt}</div>
+                </div>
+                <div>
+                  <div className="text-neutral-500">预测截止</div>
+                  <div className="mt-1 font-semibold text-white">{artwork.predictionDeadlineHkt}</div>
+                </div>
+                <div>
+                  <div className="text-neutral-500">参考估值</div>
+                  <div className="mt-1 font-semibold text-white">{formatUsd(artwork.appraisalValueUsd)}</div>
+                </div>
+              </div>
+              <a
+                href={artwork.detailUrl}
+                target="_blank"
+                rel="noreferrer"
+                className="flex items-center justify-between gap-3 rounded-2xl border border-accent/30 bg-accent-soft p-3 text-xs transition hover:border-accent/60 hover:bg-accent/15"
+              >
+                <span>
+                  <span className="block font-semibold text-white">艺术品详情介绍</span>
+                  <span className="mt-1 block text-neutral-400">查看作品介绍、拍卖说明与相关资料</span>
                 </span>
-              </div>
-              <div className="relative h-2 overflow-hidden rounded-full bg-neutral-900">
-                <div
-                  className="absolute inset-y-0 left-0 bg-gradient-to-r from-emerald-400 to-accent"
-                  style={{ width: `${ticker.distribution.bullPct}%` }}
-                />
-              </div>
-              <div className="text-[11px] text-neutral-500">
-                「REPLACE_WITH_POOL_TVLAGG」：请以 `predictionMarket.getPoolTotals(artworkId)` 汇总 TVL，
-                + 代币价格折算。
-              </div>
-              <div className="rounded-xl border border-dashed border-accent/35 bg-accent/5 px-2 py-1 text-[11px] text-neutral-400">
-                自动轮询：每 15s 更新一次本地噪声曲线；切换到主网时请改为 wagmi/React Query{' '}
-                <span className="text-accent">`refetchInterval: 15000`</span> 对接真实 RPC。
-              </div>
+                <span className="shrink-0 font-semibold text-accent">打开 →</span>
+              </a>
             </div>
+          </section>
 
-            <div className="space-y-3 rounded-3xl bg-black/50 p-3">
-              <div className="text-xs font-semibold text-neutral-100">下注面板（MON · payable 演示）</div>
-              <div className="flex gap-2 rounded-2xl bg-neutral-900/80 p-1 text-[11px]">
-                <button
-                  type="button"
-                  onClick={() => setOutcome('bull')}
-                  className={`flex-1 rounded-xl py-2 font-medium ${
-                    outcome === 'bull' ? 'bg-emerald-500 text-emerald-950' : 'text-neutral-400'
-                  }`}
-                >
-                  看涨
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setOutcome('bear')}
-                  className={`flex-1 rounded-xl py-2 font-medium ${
-                    outcome === 'bear' ? 'bg-rose-500 text-rose-50' : 'text-neutral-400'
-                  }`}
-                >
-                  看跌
-                </button>
-              </div>
-              <label className="flex flex-col gap-1 text-[11px] text-neutral-400">
-                输入 MON（18 位小数）
+          <MarketInfoTabs
+            activeTab={activeInfoTab}
+            data={marketTabData}
+            onTabChange={setActiveInfoTab}
+          />
+        </main>
+
+        <aside className="space-y-4 lg:sticky lg:top-24 lg:self-start">
+          <div className="rounded-[28px] border border-white/10 bg-white/[0.04] p-4 shadow-xl shadow-purple-950/20">
+            <div className="flex items-center justify-between">
+              <h2 className="text-sm font-semibold text-white">交易</h2>
+              <span className="rounded-full bg-white/5 px-2 py-1 text-[10px] text-neutral-400">
+                $ 交易
+              </span>
+            </div>
+            <div className="mt-4 rounded-2xl border border-accent/35 bg-accent-soft px-4 py-3 text-xs text-neutral-300">
+              <div className="text-[11px] font-semibold text-accent">当前档位</div>
+              <div className="mt-1 text-base font-semibold leading-snug text-white">{selectedTier.label}</div>
+            </div>
+            <div className="mt-4 grid grid-cols-2 gap-2 rounded-2xl bg-neutral-950/70 p-1 text-[11px]">
+              <button
+                type="button"
+                onClick={() => setSelectedSide('yes')}
+                className={`rounded-xl py-2 font-semibold ${
+                  selectedSide === 'yes' ? 'bg-emerald-500 text-emerald-950' : 'text-neutral-400'
+                }`}
+              >
+                是 {selectedTier.yesPriceCents}¢
+              </button>
+              <button
+                type="button"
+                onClick={() => setSelectedSide('no')}
+                className={`rounded-xl py-2 font-semibold ${
+                  selectedSide === 'no' ? 'bg-rose-500 text-rose-50' : 'text-neutral-400'
+                }`}
+              >
+                否 {selectedTier.noPriceCents}¢
+              </button>
+            </div>
+            <label className="mt-4 flex flex-col gap-1 text-[11px] text-neutral-400">
+              金额
+              <div className="flex items-center rounded-2xl border border-white/10 bg-neutral-950 px-3 py-2 focus-within:border-accent/60">
+                <span className="mr-2 text-xs font-semibold text-neutral-300">$</span>
                 <input
                   value={amount}
                   onChange={(e) => setAmount(e.target.value)}
-                  className="rounded-2xl border border-white/10 bg-neutral-950 px-3 py-2 text-sm text-white outline-none ring-0 focus:border-accent/60"
+                  className="min-w-0 flex-1 bg-transparent text-sm text-white outline-none"
                 />
-              </label>
-              {!isConfiguredMarketAddress(PREDICTION_MARKET_ADDRESS) ? (
-                <div className="rounded-2xl border border-yellow-700/35 bg-yellow-950/55 px-3 py-2 text-[11px] text-yellow-100">
-                  当前未检测到有效合约地址：<code className="font-mono">VITE_PREDICTION_MARKET_ADDRESS</code>。
-                  UI 可先联调排版与 ABI；部署后填入即可发起真实写入。
-                </div>
-              ) : null}
-
-              {(isPending || confirming) && (
-                <div className="rounded-xl border border-accent/30 bg-accent/10 px-3 py-2 text-[11px] text-accent">
-                  <div className="flex items-center gap-2">
-                    <span className="inline-flex h-2 w-2 animate-pulse rounded-full bg-accent" />
-                    {isPending ? '等待钱包签名并广播……' : '交易已发送，确认中…'}
-                  </div>
-                </div>
-              )}
-
-              {txHash ? (
-                <div className="space-y-1 rounded-xl border border-white/10 bg-black/40 px-3 py-2 text-[11px] text-neutral-300">
-                  <div>
-                    Monad 浏览器链接：{' '}
-                    <a
-                      href={`${explorerBase}${txHash}`}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="break-all font-mono text-accent underline underline-offset-2"
-                    >
-                      {txHash.slice(0, 10)}…{txHash.slice(-8)}
-                    </a>
-                  </div>
-                </div>
-              ) : null}
-
-              <button
-                type="button"
-                disabled={!predictionOpen || isPending || confirming}
-                onClick={() => void onTrade()}
-                className="w-full rounded-2xl bg-gradient-to-r from-fuchsia-500 to-violet-600 py-3 text-xs font-semibold text-white shadow-lg shadow-purple-900/70 transition hover:brightness-105 disabled:cursor-not-allowed disabled:bg-neutral-700"
-              >
-                {predictionOpen ? '发起链上买入（占位 ABI）' : '窗口已关闭'}
-              </button>
-              <div className="text-[11px] text-neutral-500">
-                成功后请依赖 `predictionMarket.buyOutcome(artworkId, outcomeEnum, amount)` 事件回填持仓列表。
               </div>
-            </div>
-          </div>
-        </aside>
-      </div>
+            </label>
 
-      <section className="space-y-3 rounded-3xl border border-white/10 bg-neutral-950/40 p-4">
-        <div className="flex flex-wrap items-end justify-between gap-3">
-          <div>
-            <h3 className="text-sm font-semibold text-white">历史预测记录（mock events）</h3>
-            <p className="mt-1 text-[11px] text-neutral-500">
-              列表数据来自前端本地数组；生产中请分页调用 `ethers.getLogs` / The Graph subgraph。
+            {!isConfiguredMarketAddress(PREDICTION_MARKET_ADDRESS) ? (
+              <div className="mt-3 rounded-2xl border border-yellow-700/35 bg-yellow-950/55 px-3 py-2 text-[11px] text-yellow-100">
+                当前未检测到有效合约地址：<code className="font-mono">VITE_PREDICTION_MARKET_ADDRESS</code>。
+              </div>
+            ) : null}
+
+            {(isPending || confirming) && (
+              <div className="mt-3 rounded-xl border border-accent/30 bg-accent/10 px-3 py-2 text-[11px] text-accent">
+                {isPending ? '等待钱包签名并广播……' : '交易已发送，确认中…'}
+              </div>
+            )}
+
+            {txHash ? (
+              <div className="mt-3 rounded-xl border border-white/10 bg-black/40 px-3 py-2 text-[11px] text-neutral-300">
+                Monad 浏览器：{' '}
+                <a
+                  href={`${explorerBase}${txHash}`}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="break-all font-mono text-accent underline underline-offset-2"
+                >
+                  {txHash.slice(0, 10)}…{txHash.slice(-8)}
+                </a>
+              </div>
+            ) : null}
+
+            <button
+              type="button"
+              disabled={!predictionOpen || isPending || confirming}
+              onClick={() => void onTrade()}
+              className="mt-4 w-full rounded-2xl bg-gradient-to-r from-fuchsia-500 to-violet-600 py-3 text-xs font-semibold text-white shadow-lg shadow-purple-900/70 transition hover:brightness-105 disabled:cursor-not-allowed disabled:bg-neutral-700"
+            >
+              {predictionOpen ? '交易' : '窗口已关闭'}
+            </button>
+            <p className="mt-3 text-[11px] leading-relaxed text-neutral-500">
+              签名后显示哈希并等待 Monad Testnet 确认；合约方法为 `buyOutcome`。
             </p>
           </div>
-        </div>
-        <HistoryTable rows={MOCK_PREDICTION_EVENTS_BY_ART[artwork.id] ?? []} />
-      </section>
+
+        </aside>
+      </div>
     </div>
   );
 }

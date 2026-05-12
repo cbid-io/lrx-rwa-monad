@@ -22,7 +22,7 @@ export type UserTxRow = {
 export const MOCK_MY_POSITIONS: UserPositionRow[] = [
   {
     id: 'p-101',
-    artworkTitle: '星夜手稿·蓝调变奏',
+    artworkTitle: '俪人行长卷',
     side: 'bull',
     stakeWei: '120000000000000000000',
     claimableWei: '180000000000000000000',
@@ -49,7 +49,7 @@ export const MOCK_MY_HISTORY: UserTxRow[] = [
   {
     id: 'tx-902',
     hash: '0xbbbb111122223333444455556666777788889999bbbbbbbbbbbbbbbbbbbbbbbb',
-    label: '领取奖励 · 星夜手稿',
+    label: '领取奖励 · 俪人行长卷',
     time: Date.now() - 1000 * 60 * 60 * 48,
     amountWei: '350000000000000000000',
   },
