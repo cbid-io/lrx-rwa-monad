@@ -1,7 +1,8 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { Link, Navigate, useParams } from 'react-router-dom';
 import { useConnectModal } from '@rainbow-me/rainbowkit';
-import { formatEther, maxUint256, parseUnits } from 'viem';
+import { formatEther, formatUnits, maxUint256, parseUnits } from 'viem';
 import { useAccount, usePublicClient, useReadContract, useWriteContract } from 'wagmi';
 import { MOCK_ARTWORKS } from '@/mock/artworks';
 import {
@@ -18,8 +19,13 @@ import {
   isConfiguredMarketAddress,
 } from '@/config/contracts';
 import { erc20Abi } from '@/abi/erc20';
+import { predictionMarketAbi } from '@/abi/predictionMarket';
+import { erc20DecimalsToParseExponent } from '@/lib/erc20Decimals';
 import { erc20ApproveWriteArgs } from '@/lib/erc20Tx';
-import { marketIdForArtworkTier, predictionBetWriteRequest } from '@/lib/predictionMarketTx';
+import { PREDICTION_MARKET_ID_OVERRIDE } from '@/config/predictionMarket';
+import { resolvePredictionMarketId } from '@/lib/predictionMarketTx';
+import { SUBGRAPH_URL, isSubgraphConfigured } from '@/config/subgraph';
+import { useMarketBetTotalsWei } from '@/hooks/useMarketBetTotals';
 import { usePoolTicker } from '@/hooks/usePoolTicker';
 import { MONAD_EXPLORER_TX, monadTestnet } from '@/lib/monad';
 import { useTxReceiptFeedback } from '@/hooks/useTxFeedback';
@@ -218,7 +224,8 @@ export function DetailPage() {
   const { openConnectModal } = useConnectModal();
   const publicClient = usePublicClient({ chainId: monadTestnet.id });
   const { writeContractAsync, isPending } = useWriteContract();
-  const confirming = useTxReceiptFeedback(txHash).confirming;
+  const queryClient = useQueryClient();
+  const { confirming, receipt } = useTxReceiptFeedback(txHash);
 
   const usdcConfigured = isConfiguredMarketAddress(TEST_USDC_ADDRESS);
   const marketConfigured = isConfiguredMarketAddress(PREDICTION_MARKET_ADDRESS);
@@ -245,7 +252,45 @@ export function DetailPage() {
     },
   });
 
+  const { data: chainMarketCount } = useReadContract({
+    address: marketConfigured ? PREDICTION_MARKET_ADDRESS : undefined,
+    abi: predictionMarketAbi,
+    chainId: monadTestnet.id,
+    functionName: 'marketCount',
+    query: { enabled: marketConfigured },
+  });
+
   const ticker = usePoolTicker(poolSeed);
+
+  const tierIndexActive = Math.max(
+    0,
+    artworkCandidate ? artworkCandidate.priceTiers.findIndex((t) => t.id === selectedTierId) : 0,
+  );
+  const selectedTierMeta = artworkCandidate?.priceTiers.find((t) => t.id === selectedTierId);
+  const envOverridesMarketId = /^[0-9]+$/.test(PREDICTION_MARKET_ID_OVERRIDE);
+  const tierOverridesMarketId = Boolean(selectedTierMeta?.chainMarketId?.trim());
+  /** 避免在尚未拉到 `marketCount` 时退回占位公式（常见单笔部署 id 为 0，公式会得到 1000）。 */
+  const predictionMarketMetaReady =
+    !marketConfigured ||
+    chainMarketCount !== undefined ||
+    envOverridesMarketId ||
+    tierOverridesMarketId;
+  const subgraphMarketId =
+    artworkCandidate !== undefined && predictionMarketMetaReady
+      ? resolvePredictionMarketId({
+          artworkId: artworkCandidate.id,
+          tierIndex: tierIndexActive,
+          tierChainMarketId: selectedTierMeta?.chainMarketId,
+          chainMarketCount,
+        })
+      : undefined;
+  const betTotalsQuery = useMarketBetTotalsWei(subgraphMarketId);
+
+  useEffect(() => {
+    if (receipt?.status === 'success') {
+      void queryClient.invalidateQueries({ queryKey: ['predictionMarketBetTotals'] });
+    }
+  }, [queryClient, receipt?.status]);
 
   const chartData: AuctionPricePoint[] = useMemo(() => {
     if (!artworkCandidate) return [];
@@ -257,18 +302,24 @@ export function DetailPage() {
     return MOCK_MARKET_TABS_BY_ARTWORK[artworkCandidate.id] ?? MOCK_MARKET_TABS_BY_ARTWORK['1'];
   }, [artworkCandidate]);
 
-  const decimalsForAmount =
-    tokenDecimals !== undefined && tokenDecimals !== null ? Number(tokenDecimals) : 18;
+  /**
+   * 抵押代币最小单位指数：未配置 USDC 时用 18 仅占位；已配置则必须等链上 `decimals()` 返回后再解析金额，避免 USDC(6) 等精度错误。
+   */
+  const stakeParseExponent = useMemo(() => {
+    if (!usdcConfigured) return 18;
+    return erc20DecimalsToParseExponent(tokenDecimals);
+  }, [usdcConfigured, tokenDecimals]);
 
   /** 用于主按钮文案：与链上 `allowance` 比较输入金额（最小单位）。 */
   const parsedStakeForLabel = useMemo(() => {
+    if (stakeParseExponent === null) return undefined;
     try {
-      const v = parseUnits(amount, decimalsForAmount);
+      const v = parseUnits(amount, stakeParseExponent);
       return v > 0n ? v : undefined;
     } catch {
       return undefined;
     }
-  }, [amount, decimalsForAmount]);
+  }, [amount, stakeParseExponent]);
 
   if (!id || !artworkCandidate) {
     return <Navigate to="/" replace />;
@@ -281,6 +332,21 @@ export function DetailPage() {
   const totalVolumeUsd = Number(formatEther(BigInt(artwork.totalLockedMonWei)));
   const marketRows = artwork.priceTiers;
   const selectedTier = marketRows.find((tier) => tier.id === selectedTierId) ?? marketRows[0]!;
+
+  const poolExponent = stakeParseExponent ?? 18;
+  const showSubgraphPools = isSubgraphConfigured(SUBGRAPH_URL);
+  let yesPoolDisplay = '—';
+  let noPoolDisplay = '—';
+  if (showSubgraphPools) {
+    if (betTotalsQuery.isLoading) {
+      yesPoolDisplay = noPoolDisplay = '加载中…';
+    } else if (betTotalsQuery.error) {
+      yesPoolDisplay = noPoolDisplay = '—';
+    } else if (betTotalsQuery.data) {
+      yesPoolDisplay = formatUsd(Number(formatUnits(betTotalsQuery.data.yesWei, poolExponent)));
+      noPoolDisplay = formatUsd(Number(formatUnits(betTotalsQuery.data.noWei, poolExponent)));
+    }
+  }
 
   const onTrade = async () => {
     if (!address) {
@@ -295,12 +361,16 @@ export function DetailPage() {
       return;
     }
 
-    const decimals =
-      tokenDecimals !== undefined && tokenDecimals !== null ? Number(tokenDecimals) : 18;
+    if (usdcConfigured && stakeParseExponent === null) {
+      push('正在读取代币小数位，请稍后再试。');
+      return;
+    }
+
+    const exponent = stakeParseExponent ?? 18;
 
     let stakeAmount: bigint;
     try {
-      stakeAmount = parseUnits(amount, decimals);
+      stakeAmount = parseUnits(amount, exponent);
     } catch {
       push('请输入合法的金额（例如 50）。');
       return;
@@ -318,6 +388,11 @@ export function DetailPage() {
 
     if (!usdcConfigured) {
       push('尚未配置抵押代币：`VITE_TEST_USDC_ADDRESS`。');
+      return;
+    }
+
+    if (marketConfigured && !predictionMarketMetaReady) {
+      push('正在读取链上市场信息，请稍后再试。');
       return;
     }
 
@@ -351,18 +426,23 @@ export function DetailPage() {
         0,
         artwork.priceTiers.findIndex((tier) => tier.id === selectedTier.id),
       );
-      const marketId = marketIdForArtworkTier(artwork.id, tierIndex);
-      const betReq = predictionBetWriteRequest({
-        marketAddress: PREDICTION_MARKET_ADDRESS,
-        side: selectedSide,
-        marketId,
-        amount: stakeAmount,
+      const marketId = resolvePredictionMarketId({
+        artworkId: artwork.id,
+        tierIndex,
+        tierChainMarketId: selectedTier.chainMarketId,
+        chainMarketCount,
       });
+      const betFunctionName = selectedSide === 'yes' ? 'betYes' : 'betNo';
+
+      push(selectedSide === 'yes' ? '请在钱包中确认买入「是」…' : '请在钱包中确认买入「否」…');
 
       const h = await writeContractAsync({
         account: address,
         chainId: monadTestnet.id,
-        ...betReq,
+        address: PREDICTION_MARKET_ADDRESS,
+        abi: predictionMarketAbi,
+        functionName: betFunctionName,
+        args: [marketId, stakeAmount],
       });
 
       setTxHash(h);
@@ -415,7 +495,9 @@ export function DetailPage() {
     (!!address && !predictionOpen) ||
     isPending ||
     confirming ||
-    (!!address && (!marketConfigured || !usdcConfigured));
+    (!!address && (!marketConfigured || !usdcConfigured)) ||
+    (!!address && marketConfigured && !predictionMarketMetaReady) ||
+    (!!address && usdcConfigured && stakeParseExponent === null);
 
   return (
     <div className="space-y-6">
@@ -485,10 +567,10 @@ export function DetailPage() {
                         阈值：{formatHkd(row.thresholdHkd)} · 拍卖行：{artwork.auctionHouse}
                       </div>
                     </button>
-                    <div className="text-left md:text-right">
+                    {/* <div className="text-left md:text-right">
                       <div className="text-2xl font-semibold text-white">{row.probability}%</div>
                       <div className="text-[10px] text-neutral-500">当前概率</div>
-                    </div>
+                    </div> */}
                     <button
                       type="button"
                       onClick={() => {
@@ -619,6 +701,23 @@ export function DetailPage() {
               <div className="text-[11px] font-semibold text-accent">当前档位</div>
               <div className="mt-1 text-base font-semibold leading-snug text-white">{selectedTier.label}</div>
             </div>
+
+            {showSubgraphPools ? (
+              <div className="mt-4 rounded-2xl border border-white/10 bg-neutral-950/55 px-4 py-3 text-xs">
+                <div className="text-[11px] font-semibold text-neutral-400">盘口累计（抵押）</div>
+                <div className="mt-3 grid grid-cols-2 gap-3">
+                  <div>
+                    <div className="text-[10px] text-neutral-500">是</div>
+                    <div className="mt-0.5 font-mono text-sm font-semibold text-emerald-300">{yesPoolDisplay}</div>
+                  </div>
+                  <div>
+                    <div className="text-[10px] text-neutral-500">否</div>
+                    <div className="mt-0.5 font-mono text-sm font-semibold text-rose-300">{noPoolDisplay}</div>
+                  </div>
+                </div>
+              </div>
+            ) : null}
+
             <div className="mt-4 grid grid-cols-2 gap-2 rounded-2xl bg-neutral-950/70 p-1 text-[11px]">
               <button
                 type="button"
@@ -686,10 +785,8 @@ export function DetailPage() {
               {tradeButtonLabel}
             </button>
             <p className="mt-3 text-[11px] leading-relaxed text-neutral-500">
-              使用抵押代币下注：授权充足时直接调用{' '}
-              <span className="font-mono text-neutral-400">betYes</span> /{' '}
-              <span className="font-mono text-neutral-400">betNo</span>
-              ；不足时先完成授权再提交交易，哈希可在 Monad Testnet 浏览器查看确认进度。
+              金额按抵押代币链上小数位换算后与授权额度比较；选「是」或「否」将提交对应方向的下注。授权不足时会先完成授权再下单，交易哈希可在
+              Monad Testnet 浏览器查看确认进度。
             </p>
           </div>
 

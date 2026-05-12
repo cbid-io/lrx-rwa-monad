@@ -17,9 +17,11 @@ export type Artwork = {
     id: string;
     label: string;
     thresholdHkd: number;
-    probability: number;
+    probability?: number;
     yesPriceCents: number;
     noPriceCents: number;
+    /** 与合约 `createMarket` 返回的 `marketId` 一致时可填，用于多市场并行部署。 */
+    chainMarketId?: string;
   }>;
   /** MOCK：链上 wei 占位，用于排序——实盘请读合约总锁仓。 */
   totalLockedMonWei: string;
@@ -60,26 +62,26 @@ export const MOCK_ARTWORKS: Artwork[] = [
         id: 'hkd-5000w',
         label: '大于等于 5000万港币',
         thresholdHkd: 50_000_000,
-        probability: 18,
-        yesPriceCents: 18,
-        noPriceCents: 82,
+        // probability: 18,
+        yesPriceCents: 50,
+        noPriceCents: 50,
       },
-      {
-        id: 'hkd-3000w',
-        label: '大于等于 3000万港币',
-        thresholdHkd: 30_000_000,
-        probability: 49,
-        yesPriceCents: 49,
-        noPriceCents: 51,
-      },
-      {
-        id: 'hkd-2000w',
-        label: '大于等于 2000万港币',
-        thresholdHkd: 20_000_000,
-        probability: 72,
-        yesPriceCents: 72,
-        noPriceCents: 28,
-      },
+      // {
+      //   id: 'hkd-3000w',
+      //   label: '大于等于 3000万港币',
+      //   thresholdHkd: 30_000_000,
+      //   probability: 49,
+      //   yesPriceCents: 49,
+      //   noPriceCents: 51,
+      // },
+      // {
+      //   id: 'hkd-2000w',
+      //   label: '大于等于 2000万港币',
+      //   thresholdHkd: 20_000_000,
+      //   probability: 72,
+      //   yesPriceCents: 72,
+      //   noPriceCents: 28,
+      // },
     ],
     /** 占位：最热池子——TVL 高于其他条目以利排序示意。 */
     totalLockedMonWei: '9100000000000000000000',
