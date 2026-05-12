@@ -36,11 +36,19 @@ export type MarketActivity = {
   time: string;
 };
 
+export type MarketHotNews = {
+  id: string;
+  title: string;
+  source: string;
+  time: string;
+};
+
 export type MarketTabData = {
   comments: MarketComment[];
   holders: MarketHolder[];
   positions: MarketPosition[];
   activity: MarketActivity[];
+  hotNews: MarketHotNews[];
 };
 
 export const MOCK_MARKET_TABS_BY_ARTWORK: Record<string, MarketTabData> = {
@@ -144,6 +152,38 @@ export const MOCK_MARKET_TABS_BY_ARTWORK: Record<string, MarketTabData> = {
         amountUsd: 18.2,
         priceCents: 72,
         time: '14 分钟前',
+      },
+    ],
+    hotNews: [
+      {
+        id: 'n-101',
+        title: '香港中信拍卖行六月重要书画夜场确认纳入《俪人行长卷》',
+        source: 'Asia Art Wire',
+        time: '1 小时前',
+      },
+      {
+        id: 'n-102',
+        title: '近现代长卷作品预展人气升温，机构藏家关注度持续增加',
+        source: 'HK Collectors Daily',
+        time: '3 小时前',
+      },
+      {
+        id: 'n-103',
+        title: '同题材设色长卷近三年拍卖成交价出现连续抬升',
+        source: 'Auction Lens',
+        time: '今日',
+      },
+      {
+        id: 'n-104',
+        title: '香港春拍书画板块成交率回暖，高估值拍品询价活跃',
+        source: 'Fine Art Monitor',
+        time: '昨日',
+      },
+      {
+        id: 'n-105',
+        title: 'RWA 托管凭证披露更新，作品影像与鉴定摘要完成同步',
+        source: 'Monad Art Desk',
+        time: '昨日',
       },
     ],
   },

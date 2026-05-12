@@ -38,7 +38,6 @@ function Header() {
           </div>
           <div className="min-w-0 leading-tight">
             <div className="truncate text-sm font-semibold text-white md:text-base">艺术品预测市场</div>
-            <div className="hidden text-[11px] text-neutral-400 sm:block">Monad Testnet · 纯前端预览</div>
           </div>
         </div>
         <TopNavLinks />

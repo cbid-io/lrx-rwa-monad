@@ -1,7 +1,6 @@
 import { ConnectButton } from '@rainbow-me/rainbowkit';
 import { formatEther } from 'viem';
 import { useAccount, useBalance } from 'wagmi';
-import { shortAddress } from '@/lib/format';
 import { monadTestnet } from '@/lib/monad';
 
 export function WalletBar() {
@@ -16,8 +15,6 @@ export function WalletBar() {
     <div className="flex items-center gap-2 sm:gap-3">
       {address ? (
         <div className="hidden flex-col items-end leading-tight sm:flex">
-          <span className="text-[11px] text-neutral-500">地址</span>
-          <span className="font-mono text-xs text-neutral-200">{shortAddress(address)}</span>
           <span className="text-[11px] text-neutral-500">
             余额{' '}
             <span className="text-accent">

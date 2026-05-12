@@ -15,11 +15,9 @@ export function formatMon(value?: bigint): string {
 }
 
 export function formatUsd(n: number): string {
-  return new Intl.NumberFormat(undefined, {
-    style: 'currency',
-    currency: 'USD',
+  return `$${new Intl.NumberFormat('en-US', {
     maximumFractionDigits: 0,
-  }).format(n);
+  }).format(n)}`;
 }
 
 export function countdownLabel(endMs: number, nowMs: number): string {

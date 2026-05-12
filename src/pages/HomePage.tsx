@@ -4,20 +4,27 @@ import { HOMEPAGE_FEATURED_ARTWORK_ID, MOCK_ARTWORKS, type Artwork } from '@/moc
 import { countdownLabel, formatUsd } from '@/lib/format';
 import { formatEther } from 'viem';
 
-type SortMode = 'tvl' | 'ending' | 'appraisal';
+type SortMode = 'tvl' | 'participants' | 'ending';
+
+function participantCountFor(artwork: Artwork): number {
+  const totalVolume = Number(formatEther(BigInt(artwork.totalLockedMonWei)));
+  return Math.max(120, Math.round(totalVolume / 7.1));
+}
 
 function sortArtworks(rows: readonly Artwork[], mode: SortMode): Artwork[] {
   const next = [...rows];
   if (mode === 'tvl')
     next.sort((a, b) => Number(b.totalLockedMonWei) - Number(a.totalLockedMonWei));
+  else if (mode === 'participants') next.sort((a, b) => participantCountFor(b) - participantCountFor(a));
   else if (mode === 'ending') next.sort((a, b) => a.predictionEndsAt - b.predictionEndsAt);
-  else next.sort((a, b) => b.appraisalValueUsd - a.appraisalValueUsd);
   return next;
 }
 
 /** 首页首屏「当前最热」大卡；独立于下方列表卡片。 */
 function HotFeaturedBanner({ artwork, now }: { artwork: Artwork; now: number }) {
   const ended = artwork.predictionEndsAt <= now;
+  const totalVolume = Number(formatEther(BigInt(artwork.totalLockedMonWei)));
+  const participantCount = participantCountFor(artwork);
   return (
     <Link
       to={`/art/${artwork.id}`}
@@ -43,13 +50,13 @@ function HotFeaturedBanner({ artwork, now }: { artwork: Artwork; now: number }) 
         </div>
         <div className="grid grid-cols-2 gap-3 text-[11px] sm:grid-cols-3">
           <div className="rounded-2xl border border-white/10 bg-black/35 px-3 py-2.5 backdrop-blur">
-            <div className="text-neutral-500">当前估值快照</div>
-            <div className="mt-1 text-sm font-semibold text-white">{formatUsd(artwork.appraisalValueUsd)}</div>
+            <div className="text-neutral-500">总交易量</div>
+            <div className="mt-1 text-sm font-semibold text-white">{formatUsd(totalVolume)}</div>
           </div>
           <div className="rounded-2xl border border-white/10 bg-black/35 px-3 py-2.5 backdrop-blur">
-            <div className="text-neutral-500">看涨强度</div>
+            <div className="text-neutral-500">参与人数</div>
             <div className="mt-1 text-sm font-semibold text-emerald-300">
-              {(artwork.bullishPrice * 100).toFixed(0)}%
+              {participantCount.toLocaleString('zh-CN')} 人
             </div>
           </div>
           <div className="col-span-2 rounded-2xl border border-white/10 bg-black/35 px-3 py-2.5 backdrop-blur sm:col-span-1">
@@ -59,16 +66,7 @@ function HotFeaturedBanner({ artwork, now }: { artwork: Artwork; now: number }) 
             </div>
           </div>
         </div>
-        <div className="flex flex-wrap items-center justify-between gap-3 border-t border-white/10 pt-4">
-          <div className="text-[11px] text-neutral-400">
-            总交易量：{' '}
-            <span className="font-mono font-semibold text-neutral-100">
-              {formatUsd(Number(formatEther(BigInt(artwork.totalLockedMonWei))))}
-            </span>
-            <span className="mt-1 block text-[10px] text-neutral-600">
-              来自市场成交汇总。
-            </span>
-          </div>
+        <div className="flex flex-wrap items-center justify-end gap-3 border-t border-white/10 pt-4">
           <span className="inline-flex items-center rounded-2xl bg-accent px-4 py-2.5 text-xs font-semibold text-[#14061f] transition group-hover:brightness-110">
             进入预测盘口 →
           </span>
@@ -151,13 +149,6 @@ export function HomePage() {
 
   return (
     <div className="space-y-10">
-      <div className="space-y-2">
-        <h1 className="text-2xl font-semibold text-white md:text-3xl">艺术品 RWA 预测大厅</h1>
-        <p className="max-w-2xl text-sm text-neutral-400">
-          最热作品单独展示；下方为平台上其余可预测的 RWA。
-        </p>
-      </div>
-
       {/* 第一板块：当前最热 */}
       <section aria-labelledby="featured-heading" className="space-y-3">
         <h2 id="featured-heading" className="text-sm font-semibold text-neutral-200">
@@ -170,7 +161,7 @@ export function HomePage() {
       <section aria-labelledby="other-heading" className="space-y-4">
         <div className="flex flex-wrap items-end justify-between gap-3">
           <h2 id="other-heading" className="text-sm font-semibold text-neutral-200">
-            平台上的其他艺术品
+            所有艺术品盘口
           </h2>
         </div>
 
@@ -179,8 +170,8 @@ export function HomePage() {
           {(
             [
               ['tvl', '总交易量 $'],
+              ['participants', '参与人数最多'],
               ['ending', '结束时间最近'],
-              ['appraisal', '估值最高'],
             ] as const
           ).map(([k, lab]) => (
             <button

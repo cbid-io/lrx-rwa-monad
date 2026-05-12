@@ -335,7 +335,9 @@ export function DetailPage() {
                 <div className="mb-2 flex flex-wrap items-center gap-2 text-[11px] text-neutral-500">
                   <span className="rounded-full border border-white/10 px-2 py-1">艺术品 RWA</span>
                   <span>拍卖成交价预测</span>
-                  <span>{artwork.auctionHouse}</span>
+                  <span className="rounded-full border border-accent/35 bg-accent-soft px-2 py-1 font-semibold text-accent">
+                    {artwork.auctionHouse}
+                  </span>
                 </div>
                 <h1 className="text-2xl font-semibold leading-tight text-white md:text-4xl">
                   {artwork.marketTitle}
@@ -345,7 +347,7 @@ export function DetailPage() {
                     {formatUsd(totalVolumeUsd)} <span className="text-neutral-500">交易量</span>
                   </span>
                   <span>拍卖日（香港时间）：{artwork.auctionDateHkt}</span>
-                  <span>预测截止时间：{artwork.predictionDeadlineHkt}</span>
+                  <span>预测截止时间（香港时间）：{artwork.predictionDeadlineHkt}</span>
                 </div>
               </div>
             </div>
@@ -448,13 +450,15 @@ export function DetailPage() {
             <div className="space-y-4 rounded-[28px] border border-white/10 bg-white/[0.02] p-5">
               <h2 className="text-sm font-semibold text-white">规则</h2>
               <p className="text-sm leading-relaxed text-neutral-300">
-                本市场预测 {artwork.title} 在 {artwork.auctionHouse} 于香港时间
+                本市场预测 {artwork.title} 在{' '}
+                <span className="font-semibold text-accent">{artwork.auctionHouse}</span> 于香港时间
                 {artwork.auctionDateHkt} 举行拍卖时的最终成交价。每个价格档位独立结算：
                 若最终成交价大于等于该档阈值，则该档「是」份额胜出；否则「否」份额胜出。
               </p>
               <p className="text-xs leading-relaxed text-neutral-500">
                 预测截止时间为 {artwork.predictionDeadlineHkt}。主要结算来源为
-                {artwork.auctionHouse} 官方成交公告、{artwork.appraiserOrg} 与链上托管收据。
+                <span className="font-semibold text-accent">{artwork.auctionHouse}</span> 官方成交公告、
+                {artwork.appraiserOrg} 与链上托管收据。
                 实盘请将规则文本、预言机地址和最终判定事件写入合约或 indexer。
               </p>
             </div>
@@ -463,7 +467,9 @@ export function DetailPage() {
               <div className="grid grid-cols-2 gap-3 text-xs">
                 <div>
                   <div className="text-neutral-500">拍卖行</div>
-                  <div className="mt-1 font-semibold text-white">{artwork.auctionHouse}</div>
+                  <div className="mt-1 inline-flex rounded-full border border-accent/35 bg-accent-soft px-2.5 py-1 font-semibold text-accent">
+                    {artwork.auctionHouse}
+                  </div>
                 </div>
                 <div>
                   <div className="text-neutral-500">拍卖日期</div>
@@ -581,6 +587,26 @@ export function DetailPage() {
             <p className="mt-3 text-[11px] leading-relaxed text-neutral-500">
               签名后显示哈希并等待 Monad Testnet 确认；合约方法为 `buyOutcome`。
             </p>
+          </div>
+
+          <div className="rounded-[28px] border border-white/10 bg-white/[0.03] p-4">
+            <div className="flex items-center justify-between gap-3">
+              <h3 className="text-sm font-semibold text-white">艺术品热点</h3>
+              <span className="rounded-full border border-white/10 px-2 py-1 text-[10px] text-neutral-500">
+                {marketTabData.hotNews.length} 条
+              </span>
+            </div>
+            <div className="mt-3 space-y-2">
+              {marketTabData.hotNews.map((item) => (
+                <div key={item.id} className="rounded-2xl border border-white/10 bg-black/30 p-3">
+                  <div className="text-xs font-semibold leading-relaxed text-neutral-100">{item.title}</div>
+                  <div className="mt-2 flex items-center justify-between gap-3 text-[10px] text-neutral-500">
+                    <span>{item.source}</span>
+                    <span className="shrink-0">{item.time}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
           </div>
 
         </aside>

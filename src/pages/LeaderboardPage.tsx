@@ -2,7 +2,8 @@ import { useMemo, useState } from 'react';
 import { MOCK_LEADERBOARD_ALL } from '@/mock/leaderboard';
 import { filterLeaderboardByPreset } from '@/lib/pagination';
 import { useAccount } from 'wagmi';
-import { formatMon, shortAddress } from '@/lib/format';
+import { formatEther } from 'viem';
+import { formatUsd, shortAddress } from '@/lib/format';
 
 type Period = 'all' | 'month' | 'week';
 
@@ -54,7 +55,7 @@ export function LeaderboardPage() {
             <tr>
               <th className="px-4 py-3 font-normal">名次</th>
               <th className="px-4 py-3 font-normal">钱包</th>
-              <th className="px-4 py-3 font-normal">总盈利 MON</th>
+              <th className="px-4 py-3 font-normal">总盈利 $</th>
               <th className="px-4 py-3 font-normal">结算次数</th>
               <th className="hidden px-4 py-3 font-normal sm:table-cell">最近结算</th>
             </tr>
@@ -82,7 +83,9 @@ export function LeaderboardPage() {
                     </div>
                   </td>
                   <td className="px-4 py-3 font-mono text-[11px]">{shortAddress(row.rankWallet)}</td>
-                  <td className="px-4 py-3 text-accent">{formatMon(profitBn)}</td>
+                  <td className="px-4 py-3 text-accent">
+                    {formatUsd(Number(formatEther(profitBn)))}
+                  </td>
                   <td className="px-4 py-3">{row.settledCount}</td>
                   <td className="hidden px-4 py-3 text-neutral-500 sm:table-cell">
                     {new Date(row.settledAt).toLocaleDateString()}

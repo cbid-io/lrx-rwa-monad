@@ -2,7 +2,7 @@ import { useMemo, type ReactNode } from 'react';
 import { useAccount, useWriteContract } from 'wagmi';
 import { MOCK_MY_HISTORY, MOCK_MY_POSITIONS, type PredictionStatus } from '@/mock/userData';
 import { formatEther } from 'viem';
-import { formatMon, shortAddress } from '@/lib/format';
+import { formatUsd, shortAddress } from '@/lib/format';
 import { useToast } from '@/context/Toast';
 import { PREDICTION_MARKET_ADDRESS, isConfiguredMarketAddress } from '@/config/contracts';
 import { predictionMarketAbi } from '@/abi/predictionMarket';
@@ -18,6 +18,10 @@ function statusLabel(status: PredictionStatus) {
   if (status === 'pending_settlement')
     return { text: '待结算', cls: 'text-amber-200 bg-amber-500/15' };
   return { text: '已结算', cls: 'text-neutral-300 bg-white/5' };
+}
+
+function formatUsdFromWei(value: bigint): string {
+  return formatUsd(Number(formatEther(value)));
 }
 
 export function DashboardPage() {
@@ -76,14 +80,14 @@ export function DashboardPage() {
       </div>
 
       <div className="grid gap-3 md:grid-cols-3">
-        <DashboardCard title="累计投入 MON" subtitle="open + pending stakes" mono>
-          {formatMon(totals.stakeWei)}
+        <DashboardCard title="累计投入 $" subtitle="open + pending stakes" mono>
+          {formatUsdFromWei(totals.stakeWei)}
         </DashboardCard>
-        <DashboardCard title="待领取奖励 MON" subtitle="pending rewards" mono accent>
-          {formatMon(totals.claimableWei)}
+        <DashboardCard title="待领取奖励 $" subtitle="pending rewards" mono accent>
+          {formatUsdFromWei(totals.claimableWei)}
         </DashboardCard>
         <DashboardCard title="总盈亏" subtitle="realized PnL" mono neutral>
-          +482.71 MON
+          +$483
         </DashboardCard>
       </div>
 
@@ -140,9 +144,9 @@ export function DashboardPage() {
                         {p.side === 'bull' ? '看涨' : '看跌'}
                       </span>
                     </td>
-                    <td className="px-4 py-2">{Number(formatEther(BigInt(p.stakeWei))).toFixed(2)} MON</td>
+                    <td className="px-4 py-2">{formatUsdFromWei(BigInt(p.stakeWei))}</td>
                     <td className="hidden px-4 py-2 md:table-cell">
-                      {Number(formatEther(BigInt(p.claimableWei))).toFixed(2)} MON
+                      {formatUsdFromWei(BigInt(p.claimableWei))}
                     </td>
                     <td className="px-4 py-2">
                       <span className={`rounded-full px-2 py-0.5 text-[10px] ${badge.cls}`}>{badge.text}</span>
@@ -182,7 +186,7 @@ export function DashboardPage() {
               <div>
                 <div className="text-xs font-semibold text-white">{tx.label}</div>
                 <div className="mt-1 text-[11px] text-neutral-500">
-                  {new Date(tx.time).toLocaleString()} · {Number(formatEther(BigInt(tx.amountWei))).toFixed(3)} MON
+                  {new Date(tx.time).toLocaleString()} · {formatUsdFromWei(BigInt(tx.amountWei))}
                 </div>
               </div>
               <a
