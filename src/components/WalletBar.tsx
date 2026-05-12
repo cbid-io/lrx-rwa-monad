@@ -15,9 +15,9 @@ export function WalletBar() {
     <div className="flex items-center gap-2 sm:gap-3">
       {address ? (
         <div className="hidden flex-col items-end leading-tight sm:flex">
-          <span className="text-[11px] text-neutral-500">
+          <span className="text-xs text-neutral-500">
             余额{' '}
-            <span className="text-accent">
+            <span className="font-semibold text-accent">
               {data ? `${Number(formatEther(data.value)).toFixed(3)} MON` : '···'}
             </span>
           </span>

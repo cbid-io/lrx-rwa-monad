@@ -319,7 +319,7 @@ export function DetailPage() {
   return (
     <div className="space-y-6">
       <Link to="/" className="inline-flex text-[11px] text-accent hover:text-fuchsia-200">
-        ← 返回艺术品市场
+        ← 返回预测市场
       </Link>
 
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_380px]">
