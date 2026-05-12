@@ -152,7 +152,7 @@ function FeaturedInfoCards() {
           {FEATURED_HOT_TOPICS.map((item, idx) => (
             <div key={item.title} className="grid grid-cols-[24px_minmax(0,1fr)_96px] items-center gap-3">
               <div className="text-base font-semibold text-neutral-600">{idx + 1}</div>
-              <div className="truncate text-sm font-semibold text-neutral-100">{item.title}</div>
+              <div className="truncate text-sm font-semibold text-neutral-300">{item.title}</div>
               <div className="text-right text-xs">
                 <div className="font-semibold text-neutral-300">{item.volume}</div>
                 <div className={item.heatChange >= 0 ? 'font-semibold text-emerald-300' : 'font-semibold text-rose-300'}>
