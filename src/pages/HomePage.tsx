@@ -71,7 +71,37 @@ const FEATURED_HOT_TOPICS = [
     title: '雾与海·单色摄影 500万港币档位',
     volume: '$260K 今日',
     heatChange: 7,
-  }
+  },
+];
+
+const AI_YES_NO_PREDICTIONS = [
+  {
+    artwork: '俪人行长卷',
+    tier: '大于等于 3000万港币',
+    yesProbability: 68,
+    noProbability: 32,
+    signal: '头部玩家连续加仓 Yes',
+    news: '香港春拍长卷类标的询价升温',
+    auction: '近 30 日同类长卷成交均价上行 12%',
+  },
+  {
+    artwork: '五代 柴窑青蓝釉镂雕龙舟福童枕',
+    tier: '大于等于 2亿港币',
+    yesProbability: 61,
+    noProbability: 39,
+    signal: '大额钱包集中买入高价档',
+    news: '古陶瓷夜场高估值标的关注度提升',
+    auction: '宋元瓷器近场成交溢价保持高位',
+  },
+  {
+    artwork: '元 倪瓒《江亭山色图》',
+    tier: '大于等于 1.6亿港币',
+    yesProbability: 57,
+    noProbability: 43,
+    signal: '高胜率账户转向中高档位',
+    news: '元代书画稀缺性讨论热度持续抬升',
+    auction: '古代书画板块近三场成交率改善',
+  },
 ];
 
 function participantCountFor(artwork: Artwork): number {
@@ -159,6 +189,61 @@ function FeaturedInfoCards() {
         </div>
       </div>
     </div>
+  );
+}
+
+function AiYesNoPredictionPanel() {
+  return (
+    <section
+      aria-labelledby="ai-prediction-heading"
+      className="overflow-hidden rounded-3xl border border-accent/25 bg-gradient-to-br from-accent/12 via-white/[0.03] to-transparent p-5 shadow-xl shadow-purple-950/20"
+    >
+      <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
+        <div>
+          <div className="text-[11px] font-semibold uppercase tracking-[0.22em] text-accent">AI SIGNAL</div>
+          <h2 id="ai-prediction-heading" className="mt-2 text-xl font-semibold text-white">
+            AI Yes/No 交易预测
+          </h2>
+          <p className="mt-2 max-w-3xl text-xs leading-6 text-neutral-400">
+            自动检测头部玩家交易、艺术品热点新闻、行业同类型艺术品最近拍卖情况，预测相关艺术品可能成交梯度。
+          </p>
+        </div>
+        <div className="flex flex-wrap gap-2 text-[11px] text-neutral-300">
+          <span className="rounded-full border border-white/10 bg-black/25 px-3 py-1">仅作交易参考</span>
+        </div>
+      </div>
+
+      <div className="mt-5 grid gap-3 lg:grid-cols-3">
+        {AI_YES_NO_PREDICTIONS.map((item) => (
+          <div key={item.artwork} className="rounded-2xl border border-white/10 bg-black/25 p-4">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <h3 className="line-clamp-1 text-sm font-semibold text-neutral-100">{item.artwork}</h3>
+                <p className="mt-1 text-xs text-neutral-500">预测梯度：{item.tier}</p>
+              </div>
+              <span className="rounded-full bg-emerald-400/15 px-2.5 py-1 text-[11px] font-semibold text-emerald-300">
+                Yes {item.yesProbability}%
+              </span>
+            </div>
+
+            <div className="mt-4 grid grid-cols-2 gap-2 text-xs">
+              <div className="rounded-xl bg-emerald-400/10 px-3 py-2">
+                <div className="text-neutral-500">Yes</div>
+                <div className="mt-1 text-lg font-semibold text-emerald-300">{item.yesProbability}%</div>
+              </div>
+              <div className="rounded-xl bg-rose-400/10 px-3 py-2">
+                <div className="text-neutral-500">No</div>
+                <div className="mt-1 text-lg font-semibold text-rose-300">{item.noProbability}%</div>
+              </div>
+            </div>
+
+            <div className="mt-4 text-[11px] leading-5 text-neutral-500">
+              <p>仅作交易参考</p>
+            </div>
+          </div>
+        ))}
+      </div>
+    </section>
   );
 }
 
@@ -298,6 +383,8 @@ export function HomePage() {
           <FeaturedInfoCards />
         </div>
       </section>
+
+      <AiYesNoPredictionPanel />
 
       {/* 第二板块：其他艺术品 */}
       <section aria-labelledby="other-heading" className="space-y-4">
