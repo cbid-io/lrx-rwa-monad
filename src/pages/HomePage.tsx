@@ -6,24 +6,6 @@ import { formatEther } from 'viem';
 
 type SortMode = 'tvl' | 'participants' | 'ending';
 
-const FEATURED_BREAKING_NEWS = [
-  {
-    title: '俪人行长卷最终成交价会达到 5000万港币吗？',
-    probability: 18,
-    change: 6,
-  },
-  {
-    title: '俪人行长卷最终成交价会达到 3000万港币吗？',
-    probability: 49,
-    change: 12,
-  },
-  {
-    title: '俪人行长卷最终成交价会低于 2000万港币吗？',
-    probability: 28,
-    change: -7,
-  },
-];
-
 const FEATURED_HOT_TOPICS = [
   {
     title: '3000万港币档位',
@@ -50,6 +32,31 @@ const FEATURED_HOT_TOPICS = [
     volume: '$280K 今日',
     heatChange: 14,
   },
+  {
+    title: '柴窑龙舟福童枕 2亿港币档位',
+    volume: '$3.8M 今日',
+    heatChange: 27,
+  },
+  {
+    title: '倪瓒《江亭山色图》1.6亿港币档位',
+    volume: '$2.1M 今日',
+    heatChange: 16,
+  },
+  {
+    title: '毕加索《女子半身像》1.9亿港币档位',
+    volume: '$1.9M 今日',
+    heatChange: 22,
+  },
+  {
+    title: '傅抱石《竹林七贤》6000万港币档位',
+    volume: '$740K 今日',
+    heatChange: -6,
+  },
+  {
+    title: '几何寂静 No.07 700万港币档位',
+    volume: '$390K 今日',
+    heatChange: 11,
+  },
 ];
 
 function participantCountFor(artwork: Artwork): number {
@@ -74,9 +81,9 @@ function HotFeaturedBanner({ artwork, now }: { artwork: Artwork; now: number }) 
   return (
     <Link
       to={`/art/${artwork.id}`}
-      className="group relative isolate flex h-full flex-col overflow-hidden rounded-3xl border border-accent/35 bg-gradient-to-br from-accent/25 via-neutral-950/90 to-neutral-950 shadow-xl shadow-accent/15 transition hover:border-accent/55 md:grid md:min-h-[320px] md:grid-cols-[1.35fr_minmax(0,1fr)]"
+      className="group relative isolate flex h-full flex-col overflow-hidden rounded-3xl border border-accent/35 bg-gradient-to-br from-accent/25 via-neutral-950/90 to-neutral-950 shadow-xl shadow-accent/15 transition hover:border-accent/55"
     >
-      <div className="relative aspect-[16/11] md:aspect-auto md:min-h-[320px]">
+      <div className="relative aspect-[16/9] min-h-[260px]">
         <img
           src={artwork.heroImage}
           alt={artwork.title}
@@ -84,39 +91,30 @@ function HotFeaturedBanner({ artwork, now }: { artwork: Artwork; now: number }) 
           className="h-full w-full object-cover transition duration-700 group-hover:scale-[1.03]"
         />
         <div className="pointer-events-none absolute inset-0 bg-gradient-to-r from-neutral-950/75 via-transparent to-transparent md:bg-gradient-to-t md:from-neutral-950/80 md:via-transparent" />
-        <span className="absolute left-4 top-4 inline-flex items-center gap-2 rounded-full border border-accent/50 bg-accent/20 px-3 py-1.5 text-[11px] font-semibold uppercase tracking-widest text-accent backdrop-blur">
-          HOT · 当前最热
-        </span>
       </div>
-      <div className="flex flex-col justify-between gap-4 p-5 md:p-8">
-        <div>
-          <h2 className="text-xl font-semibold leading-tight text-white md:text-3xl">{artwork.title}</h2>
-          <p className="mt-2 text-sm text-neutral-400">{artwork.artist}</p>
-          <p className="mt-3 line-clamp-2 text-sm text-neutral-500">{artwork.medium}</p>
+      <div className="flex flex-wrap items-center justify-between gap-3 p-5">
+        <div className="min-w-[180px]">
+          <h2 className="text-xl font-semibold leading-tight text-white md:text-2xl">{artwork.title}</h2>
         </div>
-        <div className="grid grid-cols-2 gap-3 text-[11px] sm:grid-cols-3">
-          <div className="rounded-2xl border border-white/10 bg-black/35 px-3 py-2.5 backdrop-blur">
-            <div className="text-neutral-500">总交易量</div>
-            <div className="mt-1 text-sm font-semibold text-white">{formatUsd(totalVolume)}</div>
+        <div className="flex flex-wrap items-center gap-2 text-[11px]">
+          <div className="rounded-2xl border border-white/10 bg-black/35 px-3 py-2 backdrop-blur">
+            <span className="text-neutral-500">总交易量 </span>
+            <span className="font-semibold text-white">{formatUsd(totalVolume)}</span>
           </div>
-          <div className="rounded-2xl border border-white/10 bg-black/35 px-3 py-2.5 backdrop-blur">
-            <div className="text-neutral-500">参与人数</div>
-            <div className="mt-1 text-sm font-semibold text-emerald-300">
-              {participantCount.toLocaleString('zh-CN')} 人
-            </div>
+          <div className="rounded-2xl border border-white/10 bg-black/35 px-3 py-2 backdrop-blur">
+            <span className="text-neutral-500">参与人数 </span>
+            <span className="font-semibold text-emerald-300">{participantCount.toLocaleString('zh-CN')} 人</span>
           </div>
-          <div className="col-span-2 rounded-2xl border border-white/10 bg-black/35 px-3 py-2.5 backdrop-blur sm:col-span-1">
-            <div className="text-neutral-500">{ended ? '状态' : '预测截止倒计时'}</div>
-            <div className="mt-1 text-sm font-semibold text-accent">
+          <div className="rounded-2xl border border-white/10 bg-black/35 px-3 py-2 backdrop-blur">
+            <span className="text-neutral-500">{ended ? '状态 ' : '截止倒计时 '}</span>
+            <span className="font-semibold text-accent">
               {ended ? '已结束 · 查看结算' : countdownLabel(artwork.predictionEndsAt, now)}
-            </div>
+            </span>
           </div>
         </div>
-        <div className="flex flex-wrap items-center justify-end gap-3 border-t border-white/10 pt-4">
-          <span className="inline-flex items-center rounded-2xl bg-accent px-4 py-2.5 text-xs font-semibold text-[#14061f] transition group-hover:brightness-110">
-            进入预测盘口 →
-          </span>
-        </div>
+        <span className="inline-flex items-center rounded-2xl bg-accent px-4 py-2.5 text-xs font-semibold text-[#14061f] transition group-hover:brightness-110">
+          进入预测盘口 →
+        </span>
       </div>
     </Link>
   );
@@ -124,31 +122,10 @@ function HotFeaturedBanner({ artwork, now }: { artwork: Artwork; now: number }) 
 
 function FeaturedInfoCards() {
   return (
-    <div className="grid gap-3 lg:h-full lg:grid-rows-2">
-      <div className="rounded-3xl border border-white/10 bg-white/[0.03] p-4 shadow-lg shadow-purple-950/20">
+    <div className="lg:h-full">
+      <div className="h-full rounded-3xl border border-white/10 bg-white/[0.03] p-4 shadow-lg shadow-purple-950/20">
         <div className="flex items-center justify-between gap-3">
-          <h3 className="text-sm font-semibold text-white">突发新闻</h3>
-          <span className="text-lg text-neutral-500">›</span>
-        </div>
-        <div className="mt-3 divide-y divide-white/10">
-          {FEATURED_BREAKING_NEWS.map((item, idx) => (
-            <div key={item.title} className="grid grid-cols-[24px_minmax(0,1fr)_64px] items-center gap-3 py-2.5">
-              <div className="text-sm font-semibold text-neutral-600">{idx + 1}</div>
-              <div className="text-xs font-semibold leading-relaxed text-neutral-100">{item.title}</div>
-              <div className="text-right">
-                <div className="text-lg font-semibold text-white">{item.probability}%</div>
-                <div className={item.change >= 0 ? 'text-[11px] font-semibold text-emerald-300' : 'text-[11px] font-semibold text-rose-300'}>
-                  {item.change >= 0 ? '↗' : '↘'} {Math.abs(item.change)}%
-                </div>
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
-
-      <div className="rounded-3xl border border-white/10 bg-white/[0.03] p-4 shadow-lg shadow-purple-950/20">
-        <div className="flex items-center justify-between gap-3">
-          <h3 className="text-sm font-semibold text-white">热门话题</h3>
+          <h3 className="text-sm font-semibold text-white">热门预测</h3>
           <span className="text-lg text-neutral-500">›</span>
         </div>
         <div className="mt-3 space-y-2">

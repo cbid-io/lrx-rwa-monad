@@ -28,6 +28,10 @@ export const MOCK_BULL_PRICE_HISTORY_BY_ARTWORK: Record<string, PricePoint[]> = 
   '1': series(0.55, 0.08, 'artwork-one'),
   '2': series(0.62, 0.12, 'artwork-two'),
   '3': series(0.52, 0.09, 'artwork-three'),
+  '4': series(0.58, 0.1, 'chai-yao-pillow'),
+  '5': series(0.54, 0.11, 'ni-zan-scroll'),
+  '6': series(0.53, 0.1, 'picasso-bust'),
+  '7': series(0.44, 0.09, 'fu-baoshi-seven-sages'),
 };
 
 /** 30 日演示延伸（结构与 7 日相同为模拟）。 */
@@ -69,5 +73,33 @@ export const MOCK_AUCTION_PRICE_HISTORY_BY_ARTWORK: Record<string, AuctionPriceP
     { t: '2021-07-22', auctionPriceHkd: 2_400_000, auctionHouse: '香港中信拍卖行' },
     { t: '2023-08-11', auctionPriceHkd: 3_180_000, auctionHouse: '香港中信拍卖行' },
     { t: '2025-09-27', auctionPriceHkd: 4_260_000, auctionHouse: '香港中信拍卖行' },
+  ],
+  '4': [
+    { t: '2011-05-18', auctionPriceHkd: 88_000_000, auctionHouse: '中信国际拍卖公司' },
+    { t: '2015-10-22', auctionPriceHkd: 126_000_000, auctionHouse: '中信国际拍卖公司' },
+    { t: '2019-04-16', auctionPriceHkd: 168_000_000, auctionHouse: '中信国际拍卖公司' },
+    { t: '2022-11-28', auctionPriceHkd: 216_000_000, auctionHouse: '中信国际拍卖公司' },
+    { t: '2025-10-12', auctionPriceHkd: 260_000_000, auctionHouse: '中信国际拍卖公司' },
+  ],
+  '5': [
+    { t: '2008-11-03', auctionPriceHkd: 42_000_000, auctionHouse: '佳士得香港' },
+    { t: '2012-05-29', auctionPriceHkd: 68_000_000, auctionHouse: '佳士得香港' },
+    { t: '2016-11-28', auctionPriceHkd: 93_000_000, auctionHouse: '佳士得香港' },
+    { t: '2021-05-25', auctionPriceHkd: 132_000_000, auctionHouse: '佳士得香港' },
+    { t: '2025-10-28', auctionPriceHkd: 159_950_000, auctionHouse: '佳士得香港' },
+  ],
+  '6': [
+    { t: '2009-02-09', auctionPriceHkd: 64_000_000, auctionHouse: '佳士得香港' },
+    { t: '2013-06-19', auctionPriceHkd: 92_000_000, auctionHouse: '佳士得香港' },
+    { t: '2017-11-13', auctionPriceHkd: 118_000_000, auctionHouse: '佳士得香港' },
+    { t: '2021-12-01', auctionPriceHkd: 156_000_000, auctionHouse: '佳士得香港' },
+    { t: '2025-10-28', auctionPriceHkd: 196_750_000, auctionHouse: '佳士得香港' },
+  ],
+  '7': [
+    { t: '2007-10-08', auctionPriceHkd: 12_800_000, auctionHouse: '佳士得香港' },
+    { t: '2011-05-30', auctionPriceHkd: 21_600_000, auctionHouse: '佳士得香港' },
+    { t: '2015-11-30', auctionPriceHkd: 32_400_000, auctionHouse: '佳士得香港' },
+    { t: '2020-07-10', auctionPriceHkd: 45_500_000, auctionHouse: '佳士得香港' },
+    { t: '2025-10-20', auctionPriceHkd: 59_060_000, auctionHouse: '佳士得香港' },
   ],
 };

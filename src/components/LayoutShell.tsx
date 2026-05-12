@@ -14,7 +14,7 @@ function TopNavLinks() {
     ].join(' ');
 
   return (
-    <nav className="hidden items-center gap-1 md:flex">
+    <nav className="hidden items-center gap-4 md:flex">
       <NavLink end to="/" className={linkCls}>
         艺术品市场
       </NavLink>
